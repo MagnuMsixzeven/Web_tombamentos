@@ -837,9 +837,6 @@ body {
   transition: var(--transition);
 }
 
-.btn-toggle { background: var(--azul-100); color: var(--azul-500); }
-.btn-toggle:hover { background: var(--azul-200); }
-
 .btn-transfer { background: #ede9fe; color: #7c3aed; }
 .btn-transfer:hover { background: #ddd6fe; }
 
@@ -850,6 +847,85 @@ body {
 .btn-delete:hover { background: #fecaca; }
 
 .sem-acao { color: var(--cinza-300); font-size: 0.85rem; }
+
+/* ── Produto + Setor na mesma célula ─────────────────────────────────── */
+
+.produto-setor-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.produto-nome {
+  font-weight: 600;
+  color: var(--azul-800);
+  font-size: 0.9rem;
+}
+
+.produto-setor-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--cinza-500);
+  background: var(--cinza-100);
+  padding: 2px 8px;
+  border-radius: 10px;
+  width: fit-content;
+}
+
+.produto-setor-tag i {
+  font-size: 0.65rem;
+  color: var(--azul-400);
+}
+
+/* ── Status + botão toggle junto ─────────────────────────────────────── */
+
+.status-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-status-toggle {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  transition: all 0.25s ease;
+}
+
+.btn-status-baixa {
+  background: var(--vermelho-bg);
+  color: var(--vermelho);
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
+}
+
+.btn-status-baixa:hover {
+  background: var(--vermelho);
+  color: var(--branco);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.5);
+  transform: scale(1.15);
+}
+
+.btn-status-ativar {
+  background: var(--verde-bg);
+  color: var(--verde);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.35);
+}
+
+.btn-status-ativar:hover {
+  background: var(--verde);
+  color: var(--branco);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.5);
+  transform: scale(1.15);
+}
 
 /* Destaque da linha do meu setor */
 .row-meu-setor { background: rgba(37,99,235,0.03); }
@@ -1855,7 +1931,6 @@ body {
   color: #93c5fd;
 }
 
-[data-theme="dark"] .btn-toggle { background: #1e3a5f; }
 [data-theme="dark"] .btn-transfer { background: #2e1065; color: #a78bfa; }
 [data-theme="dark"] .btn-history { background: #334155; color: #94a3b8; }
 [data-theme="dark"] .btn-delete { background: #7f1d1d; color: #fca5a5; }
@@ -1865,3 +1940,8 @@ body {
 
 [data-theme="dark"] .empty-state { color: #475569; }
 [data-theme="dark"] .empty-state i { color: #334155; }
+
+[data-theme="dark"] .produto-nome { color: #e2e8f0; }
+[data-theme="dark"] .produto-setor-tag { background: #334155; color: #94a3b8; }
+[data-theme="dark"] .btn-status-baixa { background: #7f1d1d; color: #fca5a5; box-shadow: 0 2px 8px rgba(239,68,68,0.25); }
+[data-theme="dark"] .btn-status-ativar { background: #064e3b; color: #6ee7b7; box-shadow: 0 2px 8px rgba(16,185,129,0.25); }

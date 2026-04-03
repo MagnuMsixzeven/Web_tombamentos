@@ -407,15 +407,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const isAtivo = item.status === 'Ativo';
       const isMeuSetor = item.setor === setor;
 
+      // Botão toggle (junto ao status)
+      let toggleHtml = '';
+      if (tiUser) {
+        toggleHtml = `<button class="btn-status-toggle ${isAtivo ? 'btn-status-baixa' : 'btn-status-ativar'}" title="${isAtivo ? 'Dar Baixa' : 'Ativar'}" data-toggle-id="${item.id}">
+            <i class="fas fa-${isAtivo ? 'arrow-down' : 'arrow-up'}"></i>
+          </button>`;
+      }
+
       // Monta botões de ação conforme permissão
       let acoesHtml = '';
 
       if (tiUser) {
-        // TI: pode tudo
+        // TI: pode tudo (sem o toggle que foi pro status)
         acoesHtml = `
-          <button class="btn-icon btn-toggle" title="${isAtivo ? 'Dar Baixa' : 'Ativar'}" data-toggle-id="${item.id}">
-            <i class="fas fa-${isAtivo ? 'arrow-down' : 'arrow-up'}"></i>
-          </button>
           <button class="btn-icon btn-transfer" title="Transferir" data-transfer-id="${item.id}">
             <i class="fas fa-share"></i>
           </button>
@@ -446,23 +451,30 @@ document.addEventListener('DOMContentLoaded', () => {
       return `
         <tr class="${isMeuSetor ? 'row-meu-setor' : ''}">
           <td class="tombamento-cell">#${item.numero_tombamento}</td>
-          <td>${escapeHtml(item.produto)}</td>
+          <td>
+            <div class="produto-setor-cell">
+              <span class="produto-nome">${escapeHtml(item.produto)}</span>
+              <span class="produto-setor-tag"><i class="fas fa-building"></i> ${escapeHtml(item.setor || '—')}</span>
+            </div>
+          </td>
           <td>${escapeHtml(item.marca)}</td>
           <td>${escapeHtml(item.numero_serie)}</td>
           <td>
-            <span class="badge ${isAtivo ? 'badge-ativo' : 'badge-baixa'}">
-              <i class="fas fa-${isAtivo ? 'check-circle' : 'arrow-down'}"></i>
-              ${isAtivo ? 'Ativo' : 'Em Baixa'}
-            </span>
+            <div class="status-cell">
+              <span class="badge ${isAtivo ? 'badge-ativo' : 'badge-baixa'}">
+                <i class="fas fa-${isAtivo ? 'check-circle' : 'arrow-down'}"></i>
+                ${isAtivo ? 'Ativo' : 'Em Baixa'}
+              </span>
+              ${toggleHtml}
+            </div>
           </td>
-          <td>${escapeHtml(item.setor || '—')}</td>
           <td>${formatarData(item.data_cadastro)}</td>
           <td><div class="acoes-cell">${acoesHtml}</div></td>
         </tr>`;
     }).join('');
 
     // Event listeners
-    tabelaBody.querySelectorAll('.btn-toggle').forEach(btn => {
+    tabelaBody.querySelectorAll('.btn-status-toggle').forEach(btn => {
       btn.addEventListener('click', () => toggleStatus(Number(btn.dataset.toggleId)));
     });
     tabelaBody.querySelectorAll('.btn-delete').forEach(btn => {
