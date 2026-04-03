@@ -93,13 +93,6 @@
           <i class="fas fa-moon"></i>
           <span>Modo Escuro</span>
         </button>
-        <div class="sidebar-style-toggle" id="style-toggle-wrap" style="display:none;">
-          <label class="style-switch">
-            <input type="checkbox" id="chk-classic-mode">
-            <span class="style-slider"></span>
-          </label>
-          <span class="style-switch-label">Clássico</span>
-        </div>
         <a href="#" class="nav-item active" data-section="dashboard">
           <i class="fas fa-chart-pie"></i>
           <span>Dashboard</span>
@@ -296,6 +289,52 @@
             </button>
           </div>
           <div id="lista-produtos" class="config-tags-list"></div>
+        </div>
+
+        <!-- Importar Excel -->
+        <div class="card config-card">
+          <div class="config-card-header">
+            <div>
+              <h3><i class="fas fa-file-excel"></i> Importar Tombamentos via Excel</h3>
+              <p class="config-desc">Importe tombamentos anteriores de uma planilha Excel (.xlsx). O arquivo deve conter as colunas: <strong>Tombamento</strong>, <strong>Produto</strong>, <strong>Marca</strong>, <strong>Número de Série</strong>, <strong>Setor</strong>, <strong>Status</strong>.</p>
+            </div>
+          </div>
+          <div class="config-add-row">
+            <label class="btn-upload-excel" for="input-import-excel">
+              <i class="fas fa-upload"></i> Selecionar arquivo .xlsx
+              <input type="file" id="input-import-excel" accept=".xlsx" style="display:none;">
+            </label>
+            <span id="import-file-name" class="import-file-name">Nenhum arquivo selecionado</span>
+          </div>
+          <div id="import-preview" class="import-preview" style="display:none;">
+            <h4><i class="fas fa-eye"></i> Pré-visualização (<span id="import-count">0</span> registros)</h4>
+            <div class="table-wrapper" style="max-height:300px; overflow-y:auto;">
+              <table class="tabela import-table">
+                <thead>
+                  <tr>
+                    <th>Tombamento</th>
+                    <th>Produto</th>
+                    <th>Marca</th>
+                    <th>Nº Série</th>
+                    <th>Setor</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="import-table-body"></tbody>
+              </table>
+            </div>
+            <div class="import-actions">
+              <button type="button" class="btn-primary" id="btn-confirmar-import">
+                <i class="fas fa-check"></i> Confirmar Importação
+              </button>
+              <button type="button" class="btn-secondary" id="btn-cancelar-import">
+                <i class="fas fa-times"></i> Cancelar
+              </button>
+            </div>
+          </div>
+          <button type="button" class="btn-download-modelo" id="btn-modelo-excel">
+            <i class="fas fa-download"></i> Baixar modelo de planilha
+          </button>
         </div>
       </section>
 

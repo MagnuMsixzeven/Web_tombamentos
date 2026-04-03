@@ -1531,8 +1531,7 @@ body {
   .logo span,
   .nav-item span,
   .user-info span,
-  .btn-dark-toggle span,
-  .style-switch-label { display: none; }
+  .btn-dark-toggle span { display: none; }
 
   .nav-item { justify-content: center; padding: 14px; }
   .nav-item i { font-size: 1.2rem; }
@@ -1687,63 +1686,132 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   TOGGLE SWITCH (Design Clássico — só TI)
+   IMPORTAR EXCEL
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.sidebar-style-toggle {
+.btn-upload-excel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  border: none;
+}
+
+.btn-upload-excel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(16,185,129,0.35);
+}
+
+.import-file-name {
+  color: var(--cinza-500);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.import-preview {
+  margin-top: 20px;
+  padding: 20px;
+  background: var(--cinza-50);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--cinza-200);
+}
+
+.import-preview h4 {
+  font-size: 0.95rem;
+  color: var(--azul-800);
+  margin-bottom: 12px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 16px;
-  margin-bottom: 6px;
+  gap: 8px;
 }
 
-.style-switch {
-  position: relative;
-  width: 36px;
-  height: 20px;
-  flex-shrink: 0;
+.import-preview h4 i { color: var(--azul-400); }
+
+.import-table {
+  font-size: 0.85rem;
 }
 
-.style-switch input {
-  display: none;
+.import-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
 }
 
-.style-slider {
-  position: absolute;
-  inset: 0;
-  background: rgba(255,255,255,0.15);
-  border-radius: 20px;
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--cinza-200);
+  color: var(--cinza-700);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: 0.3s;
+  transition: var(--transition);
+  font-family: inherit;
 }
 
-.style-slider::before {
-  content: '';
-  position: absolute;
-  height: 14px;
-  width: 14px;
-  left: 3px;
-  bottom: 3px;
-  background: rgba(255,255,255,0.6);
-  border-radius: 50%;
-  transition: 0.3s;
+.btn-secondary:hover {
+  background: var(--cinza-300);
 }
 
-.style-switch input:checked + .style-slider {
-  background: var(--azul-400);
-}
-
-.style-switch input:checked + .style-slider::before {
-  transform: translateX(16px);
-  background: white;
-}
-
-.style-switch-label {
-  color: rgba(255,255,255,0.5);
-  font-size: 0.78rem;
+.btn-download-modelo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 8px 16px;
+  background: transparent;
+  color: var(--azul-500);
+  border: 1px solid var(--azul-200);
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
   font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: inherit;
 }
+
+.btn-download-modelo:hover {
+  background: var(--azul-50);
+  border-color: var(--azul-400);
+}
+
+/* Dark mode - import */
+[data-theme="dark"] .import-preview {
+  background: #1f2937;
+  border-color: #374151;
+}
+
+[data-theme="dark"] .import-preview h4 { color: #f3f4f6; }
+
+[data-theme="dark"] .btn-secondary {
+  background: #374151;
+  color: #e5e7eb;
+}
+
+[data-theme="dark"] .btn-secondary:hover { background: #4b5563; }
+
+[data-theme="dark"] .btn-download-modelo {
+  color: #60a5fa;
+  border-color: #374151;
+}
+
+[data-theme="dark"] .btn-download-modelo:hover {
+  background: #1e3554;
+  border-color: #60a5fa;
+}
+
+[data-theme="dark"] .import-file-name { color: #9ca3af; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    MODO ESCURO — Paleta refinada (cinza-azulado elegante)
@@ -2098,47 +2166,3 @@ body {
 /* Toast */
 [data-theme="dark"] .toast { box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   ESTILO CLÁSSICO (modo legado via toggle TI)
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-[data-style="classic"] {
-  --radius: 12px;
-  --radius-sm: 8px;
-  --sombra-sm: 0 1px 2px rgba(0,0,0,0.05);
-  --sombra-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
-  --sombra-lg: 0 10px 15px -3px rgba(0,0,0,0.08);
-  --sombra-xl: 0 20px 40px rgba(0,0,0,0.12);
-  --sidebar-bg: linear-gradient(180deg, var(--azul-900) 0%, var(--azul-800) 100%);
-  --sidebar-active: var(--azul-500);
-  --sidebar-active-border: transparent;
-}
-
-[data-style="classic"] body { background: var(--cinza-50); }
-[data-style="classic"] .main-content { background: var(--cinza-50); }
-
-[data-style="classic"] .nav-item.active {
-  background: var(--azul-500);
-  border-left: none;
-  padding-left: 16px;
-  box-shadow: 0 4px 12px rgba(37,99,235,0.4);
-}
-
-[data-style="classic"] .card { border: 1px solid var(--cinza-200); }
-[data-style="classic"] .stat-card { border: 1px solid var(--cinza-200); }
-[data-style="classic"] .sidebar { box-shadow: 4px 0 20px rgba(0,0,0,0.15); border-right: none; }
-
-[data-style="classic"] .tabela {
-  border-collapse: collapse;
-  border-spacing: 0;
-  table-layout: auto;
-}
-
-[data-style="classic"] .tabela thead th {
-  background: var(--azul-50);
-  color: var(--azul-800);
-  border-bottom: 2px solid var(--azul-100);
-}
-
-[data-style="classic"] .tabela tbody td { border-bottom: none; }
-[data-style="classic"] .tabela tbody tr:hover { background: var(--azul-50); }

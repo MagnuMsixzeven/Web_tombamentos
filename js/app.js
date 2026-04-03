@@ -140,9 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── MODO ESCURO ────────────────────────────────────────────────────────
   const THEME_KEY = 'tombamento_theme';
-  const STYLE_KEY = 'tombamento_style';
   const btnDark = document.getElementById('btn-dark-mode');
-  const chkClassic = document.getElementById('chk-classic-mode');
 
   function aplicarTema(tema) {
     document.documentElement.setAttribute('data-theme', tema);
@@ -158,25 +156,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function aplicarEstilo(estilo) {
-    document.documentElement.setAttribute('data-style', estilo);
-    localStorage.setItem(STYLE_KEY, estilo);
-    chkClassic.checked = (estilo === 'classic');
-  }
-
-  // Carregar tema e estilo salvos
+  // Carregar tema salvo
   const temaSalvo = localStorage.getItem(THEME_KEY) || 'light';
   aplicarTema(temaSalvo);
-  const estiloSalvo = localStorage.getItem(STYLE_KEY) || 'modern';
-  aplicarEstilo(estiloSalvo);
 
   btnDark.addEventListener('click', () => {
     const temaAtual = document.documentElement.getAttribute('data-theme');
     aplicarTema(temaAtual === 'dark' ? 'light' : 'dark');
-  });
-
-  chkClassic.addEventListener('change', () => {
-    aplicarEstilo(chkClassic.checked ? 'classic' : 'modern');
   });
 
   const telaLogin = document.getElementById('tela-login');
@@ -217,15 +203,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Controle de visibilidade por permissão
     const btnAdd = document.getElementById('btn-adicionar');
     const navConfig = document.getElementById('nav-config');
-    const styleToggle = document.getElementById('style-toggle-wrap');
     if (isTI()) {
       btnAdd.style.display = '';
       navConfig.style.display = '';
-      styleToggle.style.display = '';
     } else {
       btnAdd.style.display = 'none';
       navConfig.style.display = 'none';
-      styleToggle.style.display = 'none';
     }
 
     popularSelectsProdutos();
@@ -1182,5 +1165,233 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('input-novo-produto').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btn-add-produto').click(); }
+  });
+
+  // ── IMPORTAR EXCEL (.xlsx) — só TI ──────────────────────────────────────
+  let dadosImportados = [];
+
+  const inputImport = document.getElementById('input-import-excel');
+  const importFileName = document.getElementById('import-file-name');
+  const importPreview = document.getElementById('import-preview');
+  const importCount = document.getElementById('import-count');
+  const importTableBody = document.getElementById('import-table-body');
+  const btnConfirmarImport = document.getElementById('btn-confirmar-import');
+  const btnCancelarImport = document.getElementById('btn-cancelar-import');
+  const btnModeloExcel = document.getElementById('btn-modelo-excel');
+
+  inputImport.addEventListener('change', async (e) => {
+    if (!isTI()) { showToast('Apenas a TI pode importar.', true); return; }
+    const file = e.target.files[0];
+    if (!file) return;
+
+    importFileName.textContent = file.name;
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(buffer);
+      const ws = wb.worksheets[0];
+      if (!ws) { showToast('Planilha vazia.', true); return; }
+
+      dadosImportados = [];
+      let headerRow = null;
+
+      // Encontrar linha de cabeçalho
+      ws.eachRow((row, rowNum) => {
+        if (headerRow) return;
+        const valores = [];
+        row.eachCell((cell) => {
+          valores.push(String(cell.value || '').toLowerCase().trim());
+        });
+        const textoLinha = valores.join(' ');
+        if (textoLinha.includes('tombamento') || textoLinha.includes('produto')) {
+          headerRow = rowNum;
+        }
+      });
+
+      if (!headerRow) headerRow = 1;
+
+      // Mapear colunas pelo cabeçalho
+      const header = [];
+      ws.getRow(headerRow).eachCell((cell, colNum) => {
+        const val = String(cell.value || '').toLowerCase().trim();
+        header[colNum] = val;
+      });
+
+      function findCol(...keywords) {
+        for (let col = 1; col < header.length; col++) {
+          if (!header[col]) continue;
+          for (const kw of keywords) {
+            if (header[col].includes(kw)) return col;
+          }
+        }
+        return null;
+      }
+
+      const colTomb = findCol('tombamento', 'tomb', 'nº tomb', 'numero tomb');
+      const colProd = findCol('produto', 'tipo', 'equipamento');
+      const colMarca = findCol('marca');
+      const colSerie = findCol('serie', 'série', 'numero de serie', 'número de série');
+      const colSetor = findCol('setor', 'departamento');
+      const colStatus = findCol('status', 'situação', 'situacao');
+
+      if (!colProd && !colTomb) {
+        showToast('Não foi possível identificar as colunas. Verifique o cabeçalho.', true);
+        return;
+      }
+
+      // Ler dados a partir da linha seguinte ao cabeçalho
+      for (let r = headerRow + 1; r <= ws.rowCount; r++) {
+        const row = ws.getRow(r);
+        const tomb = colTomb ? String(row.getCell(colTomb).value || '').replace(/[^0-9]/g, '') : '';
+        const prod = colProd ? String(row.getCell(colProd).value || '').trim() : '';
+        const marca = colMarca ? String(row.getCell(colMarca).value || '').trim() : '';
+        const serie = colSerie ? String(row.getCell(colSerie).value || '').trim() : '';
+        const setor = colSetor ? String(row.getCell(colSetor).value || '').trim() : 'TI';
+        const status = colStatus ? String(row.getCell(colStatus).value || '').trim() : 'Ativo';
+
+        // Pular linhas vazias
+        if (!prod && !marca && !serie && !tomb) continue;
+
+        dadosImportados.push({
+          tombamento: tomb ? Number(tomb) : 0,
+          produto: prod,
+          marca: marca,
+          serie: serie,
+          setor: setor || 'TI',
+          status: (status.toLowerCase().includes('baixa') ? 'Em Baixa' : 'Ativo')
+        });
+      }
+
+      if (dadosImportados.length === 0) {
+        showToast('Nenhum dado encontrado na planilha.', true);
+        return;
+      }
+
+      // Mostrar preview
+      importCount.textContent = dadosImportados.length;
+      importTableBody.innerHTML = dadosImportados.map(d => `
+        <tr>
+          <td>${d.tombamento || '(auto)'}</td>
+          <td>${escapeHtml(d.produto)}</td>
+          <td>${escapeHtml(d.marca)}</td>
+          <td>${escapeHtml(d.serie)}</td>
+          <td>${escapeHtml(d.setor)}</td>
+          <td><span class="badge ${d.status === 'Ativo' ? 'badge-ativo' : 'badge-baixa'}">${d.status}</span></td>
+        </tr>`).join('');
+      importPreview.style.display = '';
+
+    } catch (err) {
+      showToast('Erro ao ler o arquivo: ' + err.message, true);
+    }
+
+    // Reset input para poder selecionar o mesmo arquivo de novo
+    inputImport.value = '';
+  });
+
+  btnCancelarImport.addEventListener('click', () => {
+    dadosImportados = [];
+    importPreview.style.display = 'none';
+    importFileName.textContent = 'Nenhum arquivo selecionado';
+  });
+
+  btnConfirmarImport.addEventListener('click', () => {
+    if (!isTI()) { showToast('Apenas a TI pode importar.', true); return; }
+    if (dadosImportados.length === 0) return;
+
+    const lista = getTombamentos();
+    let nextId = lista.length > 0 ? Math.max(...lista.map(t => t.id)) + 1 : 1;
+    let nextTomb = proximoTombamento();
+    let importados = 0;
+    let duplicados = 0;
+
+    const seriesExistentes = new Set(lista.map(t => t.numero_serie.toLowerCase()));
+
+    dadosImportados.forEach(d => {
+      // Verificar duplicado por número de série
+      if (d.serie && seriesExistentes.has(d.serie.toLowerCase())) {
+        duplicados++;
+        return;
+      }
+
+      const numTomb = d.tombamento > 0 ? d.tombamento : nextTomb++;
+      // Se tombamento manual, atualizar nextTomb
+      if (d.tombamento > 0 && d.tombamento >= nextTomb) {
+        nextTomb = d.tombamento + 1;
+      }
+
+      lista.push({
+        id: nextId++,
+        numero_tombamento: numTomb,
+        produto: d.produto,
+        marca: d.marca,
+        numero_serie: d.serie,
+        status: d.status,
+        setor: d.setor,
+        data_cadastro: new Date().toISOString()
+      });
+
+      if (d.serie) seriesExistentes.add(d.serie.toLowerCase());
+
+      addHistorico({
+        tombamento: numTomb,
+        tipo: 'Importação',
+        de: '—',
+        para: d.setor,
+        por: 'TI',
+        data: new Date().toISOString()
+      });
+
+      importados++;
+    });
+
+    saveTombamentos(lista);
+
+    let msg = `${importados} tombamento${importados !== 1 ? 's' : ''} importado${importados !== 1 ? 's' : ''} com sucesso!`;
+    if (duplicados > 0) msg += ` (${duplicados} duplicado${duplicados !== 1 ? 's' : ''} ignorado${duplicados !== 1 ? 's' : ''})`;
+    showToast(msg);
+
+    dadosImportados = [];
+    importPreview.style.display = 'none';
+    importFileName.textContent = 'Nenhum arquivo selecionado';
+    popularSelectsProdutos();
+    carregarDashboard();
+  });
+
+  // Baixar modelo de planilha
+  btnModeloExcel.addEventListener('click', async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Modelo');
+
+    ws.columns = [
+      { header: 'Tombamento', key: 'tomb', width: 16 },
+      { header: 'Produto', key: 'prod', width: 20 },
+      { header: 'Marca', key: 'marca', width: 22 },
+      { header: 'Número de Série', key: 'serie', width: 28 },
+      { header: 'Setor', key: 'setor', width: 20 },
+      { header: 'Status', key: 'status', width: 16 }
+    ];
+
+    // Estilo do cabeçalho
+    ws.getRow(1).eachCell(cell => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+      cell.alignment = { horizontal: 'center' };
+    });
+
+    // Linha exemplo
+    ws.addRow({ tomb: 501, prod: 'Monitor', marca: 'Samsung', serie: 'SN123456', setor: 'TI', status: 'Ativo' });
+    ws.addRow({ tomb: 502, prod: 'CPU', marca: 'Dell', serie: 'DL789012', setor: 'Guias', status: 'Ativo' });
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'modelo_tombamentos.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   });
 });
