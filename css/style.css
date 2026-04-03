@@ -43,9 +43,9 @@
   --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Sidebar moderna */
-  --sidebar-bg: linear-gradient(180deg, #0c1929 0%, #132744 100%);
-  --sidebar-active: rgba(59,130,246,0.15);
-  --sidebar-active-border: var(--azul-400);
+  --sidebar-bg: linear-gradient(180deg, #1976D2 0%, #1E88E5 100%);
+  --sidebar-active: rgba(255,255,255,0.18);
+  --sidebar-active-border: #ffffff;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -217,7 +217,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(160deg, var(--azul-900) 0%, var(--azul-700) 60%, #1a3a6a 100%);
+  background: linear-gradient(160deg, #1565C0 0%, #1E88E5 50%, #2196F3 100%);
   position: relative;
   overflow: hidden;
 }
