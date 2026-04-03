@@ -97,6 +97,10 @@
           <i class="fas fa-list"></i>
           <span>Equipamentos</span>
         </a>
+        <a href="#" class="nav-item" data-section="configuracoes" id="nav-config" style="display:none;">
+          <i class="fas fa-gear"></i>
+          <span>Configurações</span>
+        </a>
       </nav>
       <div class="sidebar-user">
         <div class="user-info">
@@ -189,14 +193,6 @@
             <div class="filtro-group">
               <select id="filtro-produto" class="filtro-select">
                 <option value="Todos">Todos os Produtos</option>
-                <option value="Monitor">Monitor</option>
-                <option value="Nobreak">Nobreak</option>
-                <option value="CPU">CPU</option>
-                <option value="DVR">DVR</option>
-                <option value="Switch">Switch</option>
-                <option value="Microfone">Microfone</option>
-                <option value="Câmera">Câmera</option>
-                <option value="Rack">Rack</option>
               </select>
             </div>
             <div class="filtro-group">
@@ -251,6 +247,48 @@
         </div>
       </section>
 
+      <!-- ─── CONFIGURAÇÕES (só TI) ──────────────────────────────── -->
+      <section id="section-configuracoes" class="section">
+        <div class="section-header">
+          <h1><i class="fas fa-gear"></i> Configurações</h1>
+          <p class="subtitle">Gerencie os catálogos do sistema</p>
+        </div>
+
+        <!-- Marcas -->
+        <div class="card config-card">
+          <div class="config-card-header">
+            <div>
+              <h3><i class="fas fa-tag"></i> Marcas Cadastradas</h3>
+              <p class="config-desc">As marcas aqui ficam disponíveis como sugestão ao cadastrar equipamentos.</p>
+            </div>
+          </div>
+          <div class="config-add-row">
+            <input type="text" id="input-nova-marca" placeholder="Nova marca (ex: Samsung, LG, TP-Link...)" class="filtro-input config-input">
+            <button class="btn-primary" id="btn-add-marca">
+              <i class="fas fa-plus"></i> Adicionar
+            </button>
+          </div>
+          <div id="lista-marcas" class="config-tags-list"></div>
+        </div>
+
+        <!-- Produtos -->
+        <div class="card config-card">
+          <div class="config-card-header">
+            <div>
+              <h3><i class="fas fa-desktop"></i> Produtos (tipos de equipamento)</h3>
+              <p class="config-desc">Os tipos de produto aparecem nos filtros e no cadastro.</p>
+            </div>
+          </div>
+          <div class="config-add-row">
+            <input type="text" id="input-novo-produto" placeholder="Novo tipo de produto (ex: Impressora, Roteador...)" class="filtro-input config-input">
+            <button class="btn-primary" id="btn-add-produto">
+              <i class="fas fa-plus"></i> Adicionar
+            </button>
+          </div>
+          <div id="lista-produtos" class="config-tags-list"></div>
+        </div>
+      </section>
+
     </main>
   </div>
 
@@ -272,19 +310,12 @@
             <label for="produto"><i class="fas fa-desktop"></i> Produto</label>
             <select id="produto" required>
               <option value="">Selecione o produto...</option>
-              <option value="Monitor">Monitor</option>
-              <option value="Nobreak">Nobreak</option>
-              <option value="CPU">CPU</option>
-              <option value="DVR">DVR</option>
-              <option value="Switch">Switch</option>
-              <option value="Microfone">Microfone</option>
-              <option value="Câmera">Câmera</option>
-              <option value="Rack">Rack</option>
             </select>
           </div>
           <div class="form-group">
             <label for="marca"><i class="fas fa-tag"></i> Marca</label>
-            <input type="text" id="marca" placeholder="Ex: Samsung, LG, TP-Link..." required>
+            <input type="text" id="marca" list="datalist-marcas" placeholder="Selecione ou digite a marca..." required autocomplete="off">
+            <datalist id="datalist-marcas"></datalist>
           </div>
         </div>
         <div class="form-row">
@@ -356,6 +387,10 @@
           <option value="RH">RH</option>
           <option value="Almoxarifado">Almoxarifado</option>
         </select>
+      </div>
+      <div class="form-group" style="margin-top:12px;">
+        <label for="transferir-justificativa"><i class="fas fa-comment-dots"></i> Justificativa *</label>
+        <textarea id="transferir-justificativa" rows="3" placeholder="Informe o motivo da transferência..." required style="width:100%;resize:vertical;"></textarea>
       </div>
       <div class="modal-actions">
         <button class="btn-secondary" id="btn-cancelar-transferir">Cancelar</button>

@@ -860,6 +860,25 @@ body {
   margin-top: 2px;
 }
 
+.hist-justificativa {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: rgba(59, 130, 246, 0.08);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  font-size: 0.8rem;
+  color: var(--azul-700, #1d4ed8);
+  font-style: italic;
+}
+
+.hist-justificativa i {
+  font-size: 0.72rem;
+  opacity: 0.7;
+}
+
 .empty-hist {
   text-align: center;
   color: var(--cinza-400);
@@ -1170,6 +1189,93 @@ body {
 }
 
 .toast.show { transform: translateY(0); opacity: 1; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CONFIGURAÇÕES (catálogos)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.config-card {
+  margin-bottom: 20px;
+}
+
+.config-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.config-card-header h3 {
+  margin-bottom: 4px;
+}
+
+.config-desc {
+  color: var(--cinza-400);
+  font-size: 0.84rem;
+  margin-top: 2px;
+}
+
+.config-add-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.config-input {
+  flex: 1;
+}
+
+.config-tags-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.config-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--azul-50);
+  border: 1px solid var(--azul-200);
+  border-radius: 20px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--azul-700);
+  transition: var(--transition);
+}
+
+.config-tag:hover {
+  background: var(--azul-100);
+}
+
+.config-tag .tag-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--cinza-400);
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: var(--transition);
+  padding: 0;
+}
+
+.config-tag .tag-remove:hover {
+  background: var(--vermelho);
+  color: var(--branco);
+}
+
+.config-empty {
+  color: var(--cinza-400);
+  font-size: 0.88rem;
+  font-style: italic;
+  padding: 12px 0;
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    RESPONSIVO

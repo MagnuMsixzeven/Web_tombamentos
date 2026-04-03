@@ -9,7 +9,36 @@ const STORAGE_KEY = 'tombamentos_db';
 const USERS_KEY = 'tombamento_users';
 const SESSION_KEY = 'tombamento_session';
 const HISTORICO_KEY = 'tombamento_historico';
+const MARCAS_KEY = 'tombamento_marcas';
+const PRODUTOS_KEY = 'tombamento_produtos';
 const TOMBAMENTO_INICIO = 500;
+
+// Catálogos padrão
+const MARCAS_DEFAULT = ['Samsung', 'LG', 'Dell', 'HP', 'Lenovo', 'TP-Link', 'Intelbras', 'AOC', 'Multilaser', 'Positivo'];
+const PRODUTOS_DEFAULT = ['Monitor', 'Nobreak', 'CPU', 'DVR', 'Switch', 'Microfone', 'Câmera', 'Rack'];
+
+if (!localStorage.getItem(MARCAS_KEY)) {
+  localStorage.setItem(MARCAS_KEY, JSON.stringify(MARCAS_DEFAULT));
+}
+if (!localStorage.getItem(PRODUTOS_KEY)) {
+  localStorage.setItem(PRODUTOS_KEY, JSON.stringify(PRODUTOS_DEFAULT));
+}
+
+function getMarcas() {
+  return JSON.parse(localStorage.getItem(MARCAS_KEY) || '[]').sort((a, b) => a.localeCompare(b));
+}
+
+function saveMarcas(lista) {
+  localStorage.setItem(MARCAS_KEY, JSON.stringify(lista));
+}
+
+function getProdutos() {
+  return JSON.parse(localStorage.getItem(PRODUTOS_KEY) || '[]').sort((a, b) => a.localeCompare(b));
+}
+
+function saveProdutos(lista) {
+  localStorage.setItem(PRODUTOS_KEY, JSON.stringify(lista));
+}
 
 // Setores e senhas padrão
 const SETORES_DEFAULT = {
@@ -146,12 +175,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Controle de visibilidade por permissão
     const btnAdd = document.getElementById('btn-adicionar');
+    const navConfig = document.getElementById('nav-config');
     if (isTI()) {
       btnAdd.style.display = '';
+      navConfig.style.display = '';
     } else {
       btnAdd.style.display = 'none';
+      navConfig.style.display = 'none';
     }
 
+    popularSelectsProdutos();
+    popularDatalistMarcas();
     carregarDashboard();
   }
 
@@ -178,6 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById(`section-${target}`).classList.add('active');
       if (target === 'dashboard') carregarDashboard();
       if (target === 'listagem') carregarListagem();
+      if (target === 'configuracoes') carregarConfiguracoes();
     });
   });
 
@@ -527,6 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <br><small>Atualmente em: <strong>${escapeHtml(item.setor)}</strong></small>
       </div>`;
     transferirDestino.value = '';
+    document.getElementById('transferir-justificativa').value = '';
 
     // Remove opção do setor atual do destino
     Array.from(transferirDestino.options).forEach(opt => {
@@ -540,6 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
     modalTransferir.classList.remove('show');
     transferirId = null;
     transferirDestino.value = '';
+    document.getElementById('transferir-justificativa').value = '';
   }
 
   btnFecharTransf.addEventListener('click', fecharModalTransferir);
@@ -552,6 +589,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!transferirId) return;
     const destino = transferirDestino.value;
     if (!destino) { showToast('Selecione o setor de destino.', true); return; }
+    const justificativa = document.getElementById('transferir-justificativa').value.trim();
+    if (!justificativa) { showToast('Informe a justificativa da transferência.', true); return; }
 
     const lista = getTombamentos();
     const item = lista.find(t => t.id === transferirId);
@@ -574,6 +613,7 @@ document.addEventListener('DOMContentLoaded', () => {
       de: origem,
       para: destino,
       por: setor,
+      justificativa: justificativa,
       data: new Date().toISOString()
     });
 
@@ -603,7 +643,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="hist-content">
               <strong>${escapeHtml(h.tipo)}</strong>
               ${h.tipo === 'Transferência'
-                ? `<span>de <strong>${escapeHtml(h.de)}</strong> para <strong>${escapeHtml(h.para)}</strong></span>`
+                ? `<span>de <strong>${escapeHtml(h.de)}</strong> para <strong>${escapeHtml(h.para)}</strong></span>
+                   ${h.justificativa ? `<span class="hist-justificativa"><i class="fas fa-comment-dots"></i> ${escapeHtml(h.justificativa)}</span>` : ''}`
                 : h.tipo === 'Cadastro'
                   ? `<span>Tombado no setor <strong>${escapeHtml(h.para)}</strong></span>`
                   : `<span>${escapeHtml(h.de)} → ${escapeHtml(h.para)}</span>`
@@ -879,4 +920,137 @@ document.addEventListener('DOMContentLoaded', () => {
     URL.revokeObjectURL(url);
     showToast('Exportação realizada com sucesso!');
   }
+
+  // ── CATÁLOGOS (popular selects e datalists dinâmicos) ──────────────────
+  function popularSelectsProdutos() {
+    const produtos = getProdutos();
+
+    // Select do modal de cadastro
+    const selectProduto = document.getElementById('produto');
+    const valAtual = selectProduto.value;
+    selectProduto.innerHTML = '<option value="">Selecione o produto...</option>' +
+      produtos.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+    if (valAtual) selectProduto.value = valAtual;
+
+    // Select do filtro na listagem
+    const filtroProduto = document.getElementById('filtro-produto');
+    const valFiltro = filtroProduto.value;
+    filtroProduto.innerHTML = '<option value="Todos">Todos os Produtos</option>' +
+      produtos.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+    filtroProduto.value = valFiltro || 'Todos';
+  }
+
+  function popularDatalistMarcas() {
+    const marcas = getMarcas();
+    const datalist = document.getElementById('datalist-marcas');
+    datalist.innerHTML = marcas.map(m => `<option value="${escapeHtml(m)}">`).join('');
+  }
+
+  // ── CONFIGURAÇÕES (só TI) ─────────────────────────────────────────────
+  function carregarConfiguracoes() {
+    renderMarcas();
+    renderProdutos();
+  }
+
+  function renderMarcas() {
+    const marcas = getMarcas();
+    const container = document.getElementById('lista-marcas');
+    if (marcas.length === 0) {
+      container.innerHTML = '<p class="config-empty">Nenhuma marca cadastrada.</p>';
+      return;
+    }
+    container.innerHTML = marcas.map(m => `
+      <div class="config-tag">
+        <i class="fas fa-tag" style="font-size:0.75rem; opacity:0.5;"></i>
+        ${escapeHtml(m)}
+        <button class="tag-remove" data-marca="${escapeHtml(m)}" title="Remover">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('.tag-remove[data-marca]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const nome = btn.dataset.marca;
+        let lista = getMarcas();
+        lista = lista.filter(m => m !== nome);
+        saveMarcas(lista);
+        renderMarcas();
+        popularDatalistMarcas();
+        showToast(`Marca "${nome}" removida.`);
+      });
+    });
+  }
+
+  function renderProdutos() {
+    const produtos = getProdutos();
+    const container = document.getElementById('lista-produtos');
+    if (produtos.length === 0) {
+      container.innerHTML = '<p class="config-empty">Nenhum produto cadastrado.</p>';
+      return;
+    }
+    container.innerHTML = produtos.map(p => `
+      <div class="config-tag">
+        <i class="fas fa-desktop" style="font-size:0.75rem; opacity:0.5;"></i>
+        ${escapeHtml(p)}
+        <button class="tag-remove" data-produto="${escapeHtml(p)}" title="Remover">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('.tag-remove[data-produto]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const nome = btn.dataset.produto;
+        let lista = getProdutos();
+        lista = lista.filter(p => p !== nome);
+        saveProdutos(lista);
+        renderProdutos();
+        popularSelectsProdutos();
+        showToast(`Produto "${nome}" removido.`);
+      });
+    });
+  }
+
+  // Adicionar marca
+  document.getElementById('btn-add-marca').addEventListener('click', () => {
+    const input = document.getElementById('input-nova-marca');
+    const nome = input.value.trim();
+    if (!nome) { showToast('Digite o nome da marca.', true); return; }
+    const lista = getMarcas();
+    if (lista.some(m => m.toLowerCase() === nome.toLowerCase())) {
+      showToast('Essa marca já existe.', true); return;
+    }
+    lista.push(nome);
+    saveMarcas(lista);
+    input.value = '';
+    renderMarcas();
+    popularDatalistMarcas();
+    showToast(`Marca "${nome}" adicionada!`);
+  });
+
+  document.getElementById('input-nova-marca').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btn-add-marca').click(); }
+  });
+
+  // Adicionar produto
+  document.getElementById('btn-add-produto').addEventListener('click', () => {
+    const input = document.getElementById('input-novo-produto');
+    const nome = input.value.trim();
+    if (!nome) { showToast('Digite o nome do produto.', true); return; }
+    const lista = getProdutos();
+    if (lista.some(p => p.toLowerCase() === nome.toLowerCase())) {
+      showToast('Esse produto já existe.', true); return;
+    }
+    lista.push(nome);
+    saveProdutos(lista);
+    input.value = '';
+    renderProdutos();
+    popularSelectsProdutos();
+    showToast(`Produto "${nome}" adicionado!`);
+  });
+
+  document.getElementById('input-novo-produto').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('btn-add-produto').click(); }
+  });
 });
