@@ -138,6 +138,33 @@ function meuSetor() {
 // ═════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
 
+  // ── MODO ESCURO ────────────────────────────────────────────────────────
+  const THEME_KEY = 'tombamento_theme';
+  const btnDark = document.getElementById('btn-dark-mode');
+
+  function aplicarTema(tema) {
+    document.documentElement.setAttribute('data-theme', tema);
+    localStorage.setItem(THEME_KEY, tema);
+    const icon = btnDark.querySelector('i');
+    const label = btnDark.querySelector('span');
+    if (tema === 'dark') {
+      icon.className = 'fas fa-sun';
+      label.textContent = 'Modo Claro';
+    } else {
+      icon.className = 'fas fa-moon';
+      label.textContent = 'Modo Escuro';
+    }
+  }
+
+  // Carregar tema salvo
+  const temaSalvo = localStorage.getItem(THEME_KEY) || 'light';
+  aplicarTema(temaSalvo);
+
+  btnDark.addEventListener('click', () => {
+    const temaAtual = document.documentElement.getAttribute('data-theme');
+    aplicarTema(temaAtual === 'dark' ? 'light' : 'dark');
+  });
+
   const telaLogin = document.getElementById('tela-login');
   const appPrincipal = document.getElementById('app-principal');
 
@@ -686,16 +713,34 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const max = Math.max(...produtos.map(p => p[1]));
-    chartEl.innerHTML = produtos.map(([nome, qtd]) => `
-      <div class="chart-bar-row">
-        <span class="chart-bar-label">${escapeHtml(nome)}</span>
-        <div class="chart-bar-track">
-          <div class="chart-bar-fill" style="width:${(qtd / max * 100)}%"></div>
-        </div>
-        <span class="chart-bar-value">${qtd}</span>
-      </div>
-    `).join('');
+    const iconesProduto = {
+      'Monitor': 'fa-desktop',
+      'Nobreak': 'fa-car-battery',
+      'CPU': 'fa-microchip',
+      'DVR': 'fa-video',
+      'Switch': 'fa-network-wired',
+      'Microfone': 'fa-microphone',
+      'Câmera': 'fa-camera',
+      'Rack': 'fa-server',
+      'Impressora': 'fa-print',
+      'Roteador': 'fa-wifi',
+      'Teclado': 'fa-keyboard',
+      'Mouse': 'fa-computer-mouse'
+    };
+
+    chartEl.innerHTML = produtos.map(([nome, qtd]) => {
+      const pct = total > 0 ? Math.round((qtd / total) * 100) : 0;
+      const icone = iconesProduto[nome] || 'fa-cube';
+      return `
+        <div class="produto-card">
+          <div class="produto-card-icon"><i class="fas ${icone}"></i></div>
+          <div class="produto-card-info">
+            <span class="produto-card-nome">${escapeHtml(nome)}</span>
+            <span class="produto-card-qtd">${qtd} <small>un.</small></span>
+          </div>
+          <div class="produto-card-pct">${pct}%</div>
+        </div>`;
+    }).join('');
 
     // ── Relatório por setor (só TI) ──────────────────────────────────
     const cardSetores = document.getElementById('card-setores');
