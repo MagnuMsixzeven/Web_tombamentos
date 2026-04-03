@@ -1792,6 +1792,12 @@ body {
 [data-theme="dark"] .login-screen { background: #111827; }
 [data-theme="dark"] .login-left { background: #111827; }
 [data-theme="dark"] .login-title { color: #f3f4f6; }
+[data-theme="dark"] .login-title span {
+  background: linear-gradient(135deg, #60a5fa, #f87171);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+[data-theme="dark"] .login-right-title { color: #ffffff; }
 [data-theme="dark"] .login-desc { color: #9ca3af; }
 [data-theme="dark"] .login-badge { background: #1e3554; color: #60a5fa; }
 [data-theme="dark"] .login-left .form-group label { color: #d1d5db; }
