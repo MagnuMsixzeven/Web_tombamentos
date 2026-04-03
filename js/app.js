@@ -140,7 +140,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── MODO ESCURO ────────────────────────────────────────────────────────
   const THEME_KEY = 'tombamento_theme';
+  const STYLE_KEY = 'tombamento_style';
   const btnDark = document.getElementById('btn-dark-mode');
+  const chkClassic = document.getElementById('chk-classic-mode');
 
   function aplicarTema(tema) {
     document.documentElement.setAttribute('data-theme', tema);
@@ -156,13 +158,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Carregar tema salvo
+  function aplicarEstilo(estilo) {
+    document.documentElement.setAttribute('data-style', estilo);
+    localStorage.setItem(STYLE_KEY, estilo);
+    chkClassic.checked = (estilo === 'classic');
+  }
+
+  // Carregar tema e estilo salvos
   const temaSalvo = localStorage.getItem(THEME_KEY) || 'light';
   aplicarTema(temaSalvo);
+  const estiloSalvo = localStorage.getItem(STYLE_KEY) || 'modern';
+  aplicarEstilo(estiloSalvo);
 
   btnDark.addEventListener('click', () => {
     const temaAtual = document.documentElement.getAttribute('data-theme');
     aplicarTema(temaAtual === 'dark' ? 'light' : 'dark');
+  });
+
+  chkClassic.addEventListener('change', () => {
+    aplicarEstilo(chkClassic.checked ? 'classic' : 'modern');
   });
 
   const telaLogin = document.getElementById('tela-login');
@@ -203,12 +217,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Controle de visibilidade por permissão
     const btnAdd = document.getElementById('btn-adicionar');
     const navConfig = document.getElementById('nav-config');
+    const styleToggle = document.getElementById('style-toggle-wrap');
     if (isTI()) {
       btnAdd.style.display = '';
       navConfig.style.display = '';
+      styleToggle.style.display = '';
     } else {
       btnAdd.style.display = 'none';
       navConfig.style.display = 'none';
+      styleToggle.style.display = 'none';
     }
 
     popularSelectsProdutos();
