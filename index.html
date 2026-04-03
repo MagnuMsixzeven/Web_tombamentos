@@ -314,8 +314,11 @@
           </div>
           <div class="form-group">
             <label for="marca"><i class="fas fa-tag"></i> Marca</label>
-            <input type="text" id="marca" list="datalist-marcas" placeholder="Selecione ou digite a marca..." required autocomplete="off">
-            <datalist id="datalist-marcas"></datalist>
+            <div class="combobox-wrapper">
+              <input type="text" id="marca" placeholder="Selecione ou digite a marca..." required autocomplete="off">
+              <button type="button" class="combobox-arrow" id="marca-arrow"><i class="fas fa-chevron-down"></i></button>
+              <div class="combobox-dropdown" id="marca-dropdown"></div>
+            </div>
           </div>
         </div>
         <div class="form-row">

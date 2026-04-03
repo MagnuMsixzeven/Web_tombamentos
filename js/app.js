@@ -941,9 +941,65 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function popularDatalistMarcas() {
+    // Combobox customizado
     const marcas = getMarcas();
-    const datalist = document.getElementById('datalist-marcas');
-    datalist.innerHTML = marcas.map(m => `<option value="${escapeHtml(m)}">`).join('');
+    const input = document.getElementById('marca');
+    const dropdown = document.getElementById('marca-dropdown');
+    const arrow = document.getElementById('marca-arrow');
+
+    function renderOptions(filtro) {
+      const filtered = filtro
+        ? marcas.filter(m => m.toLowerCase().includes(filtro.toLowerCase()))
+        : marcas;
+
+      if (filtered.length === 0) {
+        dropdown.innerHTML = '<div class="combobox-no-result">Nenhuma marca encontrada</div>';
+      } else {
+        dropdown.innerHTML = filtered.map(m =>
+          `<div class="combobox-option">${escapeHtml(m)}</div>`
+        ).join('');
+      }
+
+      dropdown.querySelectorAll('.combobox-option').forEach(opt => {
+        opt.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          input.value = opt.textContent;
+          dropdown.classList.remove('open');
+        });
+      });
+    }
+
+    // Abrir/fechar com a seta
+    arrow.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (dropdown.classList.contains('open')) {
+        dropdown.classList.remove('open');
+      } else {
+        renderOptions(input.value);
+        dropdown.classList.add('open');
+        input.focus();
+      }
+    });
+
+    // Filtrar ao digitar
+    input.addEventListener('input', () => {
+      renderOptions(input.value);
+      dropdown.classList.add('open');
+    });
+
+    // Abrir ao focar
+    input.addEventListener('focus', () => {
+      renderOptions(input.value);
+      dropdown.classList.add('open');
+    });
+
+    // Fechar ao clicar fora
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.combobox-wrapper')) {
+        dropdown.classList.remove('open');
+      }
+    });
   }
 
   // ── CONFIGURAÇÕES (só TI) ─────────────────────────────────────────────
