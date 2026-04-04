@@ -11,6 +11,7 @@ const SESSION_KEY = 'tombamento_session';
 const HISTORICO_KEY = 'tombamento_historico';
 const MARCAS_KEY = 'tombamento_marcas';
 const PRODUTOS_KEY = 'tombamento_produtos';
+const LOGS_KEY = 'tombamento_logs';
 const TOMBAMENTO_INICIO = 500;
 
 // Catálogos padrão
@@ -89,6 +90,27 @@ function addHistorico(entry) {
   const hist = getHistorico();
   hist.unshift(entry);
   localStorage.setItem(HISTORICO_KEY, JSON.stringify(hist));
+}
+
+// ── Logs de Atividade ────────────────────────────────────────────────────
+function getLogs() {
+  const data = localStorage.getItem(LOGS_KEY);
+  return data ? JSON.parse(data) : [];
+}
+
+function addLog(acao, detalhes, nivel) {
+  const logs = getLogs();
+  logs.unshift({
+    id: Date.now(),
+    data: new Date().toISOString(),
+    setor: meuSetor() || 'Sistema',
+    acao: acao,
+    detalhes: detalhes || '',
+    nivel: nivel || 'info'
+  });
+  // Manter no máximo 500 registros
+  if (logs.length > 500) logs.length = 500;
+  localStorage.setItem(LOGS_KEY, JSON.stringify(logs));
 }
 
 function proximoTombamento() {
@@ -187,11 +209,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (senha !== users[setor]) {
       loginError.textContent = 'Senha incorreta.';
+      addLog('Login falhou', `Tentativa de login no setor ${setor} — senha incorreta`, 'erro');
       return;
     }
 
     loginError.textContent = '';
     setSession(setor);
+    addLog('Login', `Setor ${setor} entrou no sistema`, 'info');
     mostrarApp(setor);
   });
 
@@ -203,12 +227,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Controle de visibilidade por permissão
     const btnAdd = document.getElementById('btn-adicionar');
     const navConfig = document.getElementById('nav-config');
+    const navLogs = document.getElementById('nav-logs');
     if (isTI()) {
       btnAdd.style.display = '';
       navConfig.style.display = '';
+      navLogs.style.display = '';
     } else {
       btnAdd.style.display = 'none';
       navConfig.style.display = 'none';
+      navLogs.style.display = 'none';
     }
 
     popularSelectsProdutos();
@@ -218,6 +245,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Logout
   document.getElementById('btn-logout').addEventListener('click', () => {
+    addLog('Logout', `Setor ${meuSetor()} saiu do sistema`, 'info');
     clearSession();
     appPrincipal.style.display = 'none';
     telaLogin.style.display = 'flex';
@@ -240,6 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (target === 'dashboard') carregarDashboard();
       if (target === 'listagem') carregarListagem();
       if (target === 'configuracoes') carregarConfiguracoes();
+      if (target === 'logs') carregarLogs();
     });
   });
 
@@ -304,6 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
       data: new Date().toISOString()
     });
 
+    addLog('Cadastro', `Tombamento #${num} — ${produto} ${marca} (Série: ${numero_serie})`, 'sucesso');
     showToast(`Tombamento #${num} cadastrado com sucesso!`);
     fecharModalCadastro();
     carregarListagem();
@@ -530,6 +560,7 @@ document.addEventListener('DOMContentLoaded', () => {
       data: new Date().toISOString()
     });
 
+    addLog('Status alterado', `#${item.numero_tombamento} — ${statusAntigo} → ${item.status}`, item.status === 'Em Baixa' ? 'alerta' : 'sucesso');
     carregarListagem();
     showToast(`Status alterado para ${item.status}!`);
   }
@@ -560,8 +591,10 @@ document.addEventListener('DOMContentLoaded', () => {
   modalConfirmar.addEventListener('click', () => {
     if (!excluirId || !isTI()) return;
     let lista = getTombamentos();
+    const itemExcluir = lista.find(t => t.id === excluirId);
     lista = lista.filter(t => t.id !== excluirId);
     saveTombamentos(lista);
+    if (itemExcluir) addLog('Exclusão', `#${itemExcluir.numero_tombamento} — ${itemExcluir.produto} ${itemExcluir.marca} excluído`, 'erro');
     showToast('Tombamento excluído com sucesso!');
     carregarListagem();
     modalOverlay.classList.remove('show');
@@ -656,6 +689,7 @@ document.addEventListener('DOMContentLoaded', () => {
       data: new Date().toISOString()
     });
 
+    addLog('Transferência', `#${item.numero_tombamento} — ${origem} → ${destino} (${justificativa})`, 'alerta');
     showToast(`#${item.numero_tombamento} transferido de ${origem} → ${destino}`);
     fecharModalTransferir();
     carregarListagem();
@@ -1393,5 +1427,111 @@ document.addEventListener('DOMContentLoaded', () => {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  });
+
+  // ═════════════════════════════════════════════════════════════════════════
+  // LOGS DE ATIVIDADE (só TI)
+  // ═════════════════════════════════════════════════════════════════════════
+
+  const NIVEL_CONFIG = {
+    info:    { icone: 'fa-circle-info',    cor: '#3b82f6', bg: '#eff6ff',  label: 'Info' },
+    sucesso: { icone: 'fa-circle-check',   cor: '#10b981', bg: '#ecfdf5',  label: 'Sucesso' },
+    alerta:  { icone: 'fa-triangle-exclamation', cor: '#f59e0b', bg: '#fffbeb', label: 'Alerta' },
+    erro:    { icone: 'fa-circle-xmark',   cor: '#ef4444', bg: '#fef2f2',  label: 'Erro' }
+  };
+
+  function carregarLogs() {
+    const logs = getLogs();
+    const logsLista = document.getElementById('logs-lista');
+    const logsStats = document.getElementById('logs-stats');
+    const filtroBusca = document.getElementById('filtro-log-busca');
+    const filtroNivel = document.getElementById('filtro-log-nivel');
+    const filtroSetor = document.getElementById('filtro-log-setor');
+
+    // Popular filtro de setores
+    const setores = [...new Set(logs.map(l => l.setor))].sort();
+    filtroSetor.innerHTML = '<option value="Todos">Todos os setores</option>' +
+      setores.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+
+    function renderLogs() {
+      const busca = filtroBusca.value.toLowerCase();
+      const nivel = filtroNivel.value;
+      const setor = filtroSetor.value;
+
+      let filtrados = logs.filter(l => {
+        if (nivel !== 'Todos' && l.nivel !== nivel) return false;
+        if (setor !== 'Todos' && l.setor !== setor) return false;
+        if (busca && !(l.acao + l.detalhes + l.setor).toLowerCase().includes(busca)) return false;
+        return true;
+      });
+
+      // Stats
+      const contagem = { info: 0, sucesso: 0, alerta: 0, erro: 0 };
+      filtrados.forEach(l => { if (contagem[l.nivel] !== undefined) contagem[l.nivel]++; });
+
+      logsStats.innerHTML = Object.entries(NIVEL_CONFIG).map(([key, cfg]) => `
+        <div class="log-stat-chip" style="background:${cfg.bg};color:${cfg.cor};border:1.5px solid ${cfg.cor}20;">
+          <i class="fas ${cfg.icone}"></i>
+          <span>${contagem[key]}</span>
+          <small>${cfg.label}</small>
+        </div>
+      `).join('');
+
+      if (filtrados.length === 0) {
+        logsLista.innerHTML = `
+          <div style="text-align:center;padding:40px;color:var(--cinza-400);">
+            <i class="fas fa-inbox" style="font-size:2rem;margin-bottom:10px;display:block;"></i>
+            <p>Nenhum log encontrado.</p>
+          </div>`;
+        return;
+      }
+
+      // Agrupar por data
+      const grupos = {};
+      filtrados.forEach(l => {
+        const d = new Date(l.data);
+        const chave = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+        if (!grupos[chave]) grupos[chave] = [];
+        grupos[chave].push(l);
+      });
+
+      logsLista.innerHTML = Object.entries(grupos).map(([data, items]) => `
+        <div class="log-grupo">
+          <div class="log-grupo-data"><i class="fas fa-calendar-day"></i> ${data}</div>
+          ${items.map(l => {
+            const cfg = NIVEL_CONFIG[l.nivel] || NIVEL_CONFIG.info;
+            const hora = new Date(l.data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            return `
+              <div class="log-item" style="border-left:3px solid ${cfg.cor};">
+                <div class="log-item-icon" style="background:${cfg.bg};color:${cfg.cor};">
+                  <i class="fas ${cfg.icone}"></i>
+                </div>
+                <div class="log-item-body">
+                  <div class="log-item-acao">${escapeHtml(l.acao)}</div>
+                  <div class="log-item-detalhes">${escapeHtml(l.detalhes)}</div>
+                </div>
+                <div class="log-item-meta">
+                  <span class="log-item-setor"><i class="fas fa-building"></i> ${escapeHtml(l.setor)}</span>
+                  <span class="log-item-hora"><i class="fas fa-clock"></i> ${hora}</span>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+      `).join('');
+    }
+
+    filtroBusca.addEventListener('input', debounce(renderLogs, 300));
+    filtroNivel.addEventListener('change', renderLogs);
+    filtroSetor.addEventListener('change', renderLogs);
+    renderLogs();
+  }
+
+  // Limpar logs
+  document.getElementById('btn-limpar-logs').addEventListener('click', () => {
+    if (!confirm('Deseja limpar todos os logs de atividade?')) return;
+    localStorage.removeItem(LOGS_KEY);
+    addLog('Logs limpos', 'Todos os logs anteriores foram apagados', 'alerta');
+    carregarLogs();
+    showToast('Logs limpos com sucesso!');
   });
 });

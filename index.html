@@ -105,6 +105,10 @@
           <i class="fas fa-gear"></i>
           <span>Configurações</span>
         </a>
+        <a href="#" class="nav-item" data-section="logs" id="nav-logs" style="display:none;">
+          <i class="fas fa-clock-rotate-left"></i>
+          <span>Logs de Atividade</span>
+        </a>
       </nav>
       <div class="sidebar-user">
         <div class="user-info">
@@ -335,6 +339,50 @@
           <button type="button" class="btn-download-modelo" id="btn-modelo-excel">
             <i class="fas fa-download"></i> Baixar modelo de planilha
           </button>
+        </div>
+      </section>
+
+      <!-- ─── LOGS DE ATIVIDADE (só TI) ──────────────────────────── -->
+      <section id="section-logs" class="section">
+        <div class="section-header">
+          <div class="section-header-row">
+            <div>
+              <h1><i class="fas fa-clock-rotate-left"></i> Logs de Atividade</h1>
+              <p class="subtitle">Registro de todas as ações realizadas no sistema</p>
+            </div>
+            <div class="header-actions">
+              <button class="btn-secondary" id="btn-limpar-logs" style="color:#ef4444;border-color:#fca5a5;">
+                <i class="fas fa-trash"></i> Limpar Logs
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="filtros-bar">
+            <div class="filtro-group">
+              <input type="text" id="filtro-log-busca" placeholder="Buscar nos logs..." class="filtro-input">
+            </div>
+            <div class="filtro-group">
+              <select id="filtro-log-nivel" class="filtro-select">
+                <option value="Todos">Todos os níveis</option>
+                <option value="info">Info</option>
+                <option value="sucesso">Sucesso</option>
+                <option value="alerta">Alerta</option>
+                <option value="erro">Erro</option>
+              </select>
+            </div>
+            <div class="filtro-group">
+              <select id="filtro-log-setor" class="filtro-select">
+                <option value="Todos">Todos os setores</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Stats rápidos -->
+          <div class="logs-stats" id="logs-stats"></div>
+
+          <div class="logs-lista" id="logs-lista"></div>
         </div>
       </section>
 
