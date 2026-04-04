@@ -138,7 +138,7 @@ function getSession() {
 }
 
 function setSession(setor) {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ setor }));
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ setor, loginTime: new Date().toISOString() }));
 }
 
 function clearSession() {
@@ -1447,6 +1447,69 @@ document.addEventListener('DOMContentLoaded', () => {
     const filtroBusca = document.getElementById('filtro-log-busca');
     const filtroNivel = document.getElementById('filtro-log-nivel');
     const filtroSetor = document.getElementById('filtro-log-setor');
+    const onlinePanel = document.getElementById('logs-online-panel');
+
+    // ── Sessão Ativa & Histórico de Acessos ──────────────────────────
+    const sessao = getSession();
+    let loginDuracao = '';
+    if (sessao && sessao.loginTime) {
+      const diff = Date.now() - new Date(sessao.loginTime).getTime();
+      const mins = Math.floor(diff / 60000);
+      const hrs = Math.floor(mins / 60);
+      loginDuracao = hrs > 0 ? `${hrs}h ${mins % 60}min` : `${mins}min`;
+    }
+
+    // Últimos logins de cada setor
+    const acessos = {};
+    logs.forEach(l => {
+      if (l.acao === 'Login' && !acessos[l.setor]) {
+        acessos[l.setor] = l.data;
+      }
+    });
+
+    const setoresOnline = Object.entries(acessos).map(([setor, data]) => {
+      const diff = Date.now() - new Date(data).getTime();
+      const mins = Math.floor(diff / 60000);
+      const recente = mins < 10;
+      const horaLogin = new Date(data).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const dataLogin = new Date(data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+      return { setor, data, mins, recente, horaLogin, dataLogin };
+    }).sort((a, b) => new Date(b.data) - new Date(a.data));
+
+    if (onlinePanel) {
+      onlinePanel.innerHTML = `
+        <!-- Sessão Atual -->
+        <div class="online-sessao-card">
+          <div class="online-sessao-header">
+            <i class="fas fa-circle" style="color:#10b981;font-size:.6rem;animation:pulse-dot 2s infinite;"></i>
+            <strong>Sua Sessão</strong>
+          </div>
+          <div class="online-sessao-info">
+            <span><i class="fas fa-building"></i> ${escapeHtml(sessao ? sessao.setor : '—')}</span>
+            <span><i class="fas fa-clock"></i> Online há ${loginDuracao || '—'}</span>
+          </div>
+        </div>
+        <!-- Últimos Acessos por Setor -->
+        <div class="online-acessos-card">
+          <div class="online-acessos-header">
+            <i class="fas fa-users"></i> <strong>Últimos Acessos por Setor</strong>
+          </div>
+          <div class="online-acessos-list">
+            ${setoresOnline.length === 0 ? '<div style="padding:12px;color:var(--cinza-400);font-size:.82rem;">Nenhum acesso registrado</div>' :
+              setoresOnline.map(s => `
+                <div class="online-acesso-item">
+                  <div class="online-acesso-dot" style="background:${s.recente ? '#10b981' : '#94a3b8'};"></div>
+                  <div class="online-acesso-nome">${escapeHtml(s.setor)}</div>
+                  <div class="online-acesso-tempo">
+                    ${s.recente ? '<span class="badge-online">ativo</span>' : ''}
+                    ${s.dataLogin} às ${s.horaLogin}
+                  </div>
+                </div>
+              `).join('')}
+          </div>
+        </div>
+      `;
+    }
 
     // Popular filtro de setores
     const setores = [...new Set(logs.map(l => l.setor))].sort();

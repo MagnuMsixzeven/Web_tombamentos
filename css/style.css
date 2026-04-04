@@ -1876,6 +1876,50 @@ body {
   font-size: .7rem; color: var(--cinza-400); display: flex; align-items: center; gap: 4px;
 }
 
+/* ── Painel Online / Sessão Ativa ─────────────────────────────────────── */
+.logs-online-panel {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 16px;
+}
+.online-sessao-card, .online-acessos-card {
+  background: var(--branco); border-radius: 10px; border: 1.5px solid var(--cinza-200);
+  overflow: hidden;
+}
+.online-sessao-header, .online-acessos-header {
+  padding: 12px 16px; font-size: .82rem; color: var(--cinza-600);
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--cinza-100);
+}
+.online-sessao-info {
+  padding: 14px 16px; display: flex; gap: 20px; font-size: .82rem; color: var(--cinza-500);
+}
+.online-sessao-info span { display: flex; align-items: center; gap: 6px; }
+.online-acessos-list { max-height: 180px; overflow-y: auto; }
+.online-acesso-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 16px; border-bottom: 1px solid var(--cinza-100);
+  font-size: .8rem; transition: .15s;
+}
+.online-acesso-item:last-child { border-bottom: none; }
+.online-acesso-item:hover { background: var(--cinza-50); }
+.online-acesso-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.online-acesso-nome { font-weight: 600; color: var(--cinza-600); flex: 1; }
+.online-acesso-tempo {
+  font-size: .72rem; color: var(--cinza-400); display: flex; align-items: center; gap: 6px;
+}
+.badge-online {
+  background: rgba(16,185,129,.12); color: #10b981; font-size: .65rem; font-weight: 700;
+  padding: 1px 7px; border-radius: 8px; text-transform: uppercase; letter-spacing: .3px;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .4; }
+}
+@media (max-width: 640px) {
+  .logs-online-panel { grid-template-columns: 1fr; }
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    MODO ESCURO — Paleta refinada (cinza-azulado elegante)
    ═══════════════════════════════════════════════════════════════════════════ */
