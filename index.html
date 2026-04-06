@@ -432,6 +432,14 @@
             </div>
           </div>
         </div>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label for="nome-equip"><i class="fas fa-id-badge"></i> Nome / Identificação <small class="badge-opcional">Opcional</small></label>
+          <input type="text" id="nome-equip" placeholder="Ex: PC Recepção, Computador da Diretoria...">
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label for="detalhes-tecnicos"><i class="fas fa-microchip"></i> Detalhes Técnicos <small class="badge-opcional">Opcional</small></label>
+          <textarea id="detalhes-tecnicos" rows="2" placeholder="Memória RAM, Processador, Fonte, HD, etc..."></textarea>
+        </div>
         <div class="modal-actions">
           <button type="button" class="btn-secondary" id="btn-cancelar-cadastro">Cancelar</button>
           <button type="submit" class="btn-primary">
@@ -490,9 +498,12 @@
           <option value="Almoxarifado">Almoxarifado</option>
         </select>
       </div>
-      <div class="form-group" style="margin-top:12px;">
+      <div id="transferir-ti-note" class="ti-transfer-note" style="display:none;">
+        <i class="fas fa-bolt"></i> Transferência instantânea — TI não precisa justificar
+      </div>
+      <div class="form-group" id="transferir-justif-group" style="margin-top:12px;">
         <label for="transferir-justificativa"><i class="fas fa-comment-dots"></i> Justificativa *</label>
-        <textarea id="transferir-justificativa" rows="3" placeholder="Informe o motivo da transferência..." required style="width:100%;resize:vertical;"></textarea>
+        <textarea id="transferir-justificativa" rows="3" placeholder="Informe o motivo da transferência..." style="width:100%;resize:vertical;font-family:inherit;"></textarea>
       </div>
       <div class="modal-actions">
         <button class="btn-secondary" id="btn-cancelar-transferir">Cancelar</button>
@@ -516,6 +527,76 @@
         <button class="btn-close-modal" id="btn-fechar-historico">&times;</button>
       </div>
       <div id="historico-body" class="historico-lista"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════════
+       MODAL – Editar Tombamento (só TI)
+       ════════════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" id="modal-editar">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <i class="fas fa-pen" style="color: var(--azul-500);"></i>
+          <h3>Editar Tombamento</h3>
+        </div>
+        <button class="btn-close-modal" id="btn-fechar-editar">&times;</button>
+      </div>
+      <form id="form-editar">
+        <input type="hidden" id="editar-id">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="editar-produto"><i class="fas fa-desktop"></i> Produto</label>
+            <select id="editar-produto" required>
+              <option value="">Selecione o produto...</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="editar-marca"><i class="fas fa-tag"></i> Marca</label>
+            <div class="combobox-wrapper">
+              <input type="text" id="editar-marca" placeholder="Selecione ou digite a marca..." required autocomplete="off">
+              <button type="button" class="combobox-arrow" id="editar-marca-arrow"><i class="fas fa-chevron-down"></i></button>
+              <div class="combobox-dropdown" id="editar-marca-dropdown"></div>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="editar-serie"><i class="fas fa-fingerprint"></i> Número de Série</label>
+            <input type="text" id="editar-serie" placeholder="Número de série do equipamento" required>
+          </div>
+          <div class="form-group">
+            <label for="editar-setor"><i class="fas fa-building"></i> Setor</label>
+            <select id="editar-setor" required>
+              <option value="TI">TI</option>
+              <option value="Guias">Guias</option>
+              <option value="DIREX">DIREX</option>
+              <option value="Faturamento">Faturamento</option>
+              <option value="Cadastro">Cadastro</option>
+              <option value="Ambulatório">Ambulatório</option>
+              <option value="Financeiro">Financeiro</option>
+              <option value="Compras">Compras</option>
+              <option value="Jurídico">Jurídico</option>
+              <option value="RH">RH</option>
+              <option value="Almoxarifado">Almoxarifado</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label for="editar-nome"><i class="fas fa-id-badge"></i> Nome / Identificação <small class="badge-opcional">Opcional</small></label>
+          <input type="text" id="editar-nome" placeholder="Ex: PC Recepção, Computador da Diretoria...">
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="editar-detalhes"><i class="fas fa-microchip"></i> Detalhes Técnicos <small class="badge-opcional">Opcional</small></label>
+          <textarea id="editar-detalhes" rows="3" placeholder="Memória RAM, Processador, Fonte, HD, etc..."></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary" id="btn-cancelar-editar">Cancelar</button>
+          <button type="submit" class="btn-primary">
+            <i class="fas fa-save"></i> Salvar Alterações
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 

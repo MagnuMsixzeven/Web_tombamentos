@@ -1316,6 +1316,73 @@ body {
   letter-spacing: 1px;
 }
 
+/* ── Campos opcionais (badge) ─────────────────────────────────────── */
+.badge-opcional {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--cinza-400);
+  background: var(--cinza-100);
+  padding: 2px 7px;
+  border-radius: 8px;
+  margin-left: 4px;
+  font-style: normal;
+}
+
+/* ── Textarea dentro de form-group ───────────────────────────────── */
+.form-group textarea {
+  padding: 10px 14px;
+  border: 2px solid var(--cinza-200);
+  border-radius: var(--radius-sm);
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--cinza-700);
+  background: var(--branco);
+  transition: var(--transition);
+  outline: none;
+  resize: vertical;
+  width: 100%;
+}
+
+.form-group textarea:focus {
+  border-color: var(--azul-400);
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
+}
+
+.form-group textarea::placeholder { color: var(--cinza-400); }
+
+/* ── Nota TI – transferência instantânea ─────────────────────────── */
+.ti-transfer-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--azul-50);
+  border: 1.5px solid var(--azul-200);
+  border-radius: var(--radius-sm);
+  color: var(--azul-600);
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-top: 12px;
+}
+
+.ti-transfer-note i { color: var(--azul-500); }
+
+/* ── Nome/Apelido do equipamento na tabela ───────────────────────── */
+.produto-apelido {
+  font-size: 0.72rem;
+  color: var(--cinza-400);
+  display: block;
+  margin-top: 2px;
+}
+
+/* ── Detalhes técnicos inline na tabela ──────────────────────────── */
+.detalhes-cell {
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    TOAST
    ═══════════════════════════════════════════════════════════════════════════ */
@@ -2114,6 +2181,19 @@ body {
   background: #111827;
   border-color: #374151;
 }
+
+[data-theme="dark"] .badge-opcional {
+  background: #374151;
+  color: #6b7280;
+}
+
+[data-theme="dark"] .ti-transfer-note {
+  background: #1e3554;
+  border-color: #374151;
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .produto-apelido { color: #6b7280; }
 
 /* Produto cards (dashboard) */
 [data-theme="dark"] .produto-card {

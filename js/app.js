@@ -16,7 +16,7 @@ const TOMBAMENTO_INICIO = 500;
 
 // Catálogos padrão
 const MARCAS_DEFAULT = ['Samsung', 'LG', 'Dell', 'HP', 'Lenovo', 'TP-Link', 'Intelbras', 'AOC', 'Multilaser', 'Positivo'];
-const PRODUTOS_DEFAULT = ['Monitor', 'Nobreak', 'CPU', 'DVR', 'Switch', 'Microfone', 'Câmera', 'Rack'];
+const PRODUTOS_DEFAULT = ['Monitor', 'Nobreak', 'Computador', 'DVR', 'Switch', 'Microfone', 'Câmera', 'Rack'];
 
 if (!localStorage.getItem(MARCAS_KEY)) {
   localStorage.setItem(MARCAS_KEY, JSON.stringify(MARCAS_DEFAULT));
@@ -24,6 +24,17 @@ if (!localStorage.getItem(MARCAS_KEY)) {
 if (!localStorage.getItem(PRODUTOS_KEY)) {
   localStorage.setItem(PRODUTOS_KEY, JSON.stringify(PRODUTOS_DEFAULT));
 }
+
+// ── Migração: CPU → Computador ──────────────────────────────────────
+(function migrateCpuToComputador() {
+  const prods = JSON.parse(localStorage.getItem(PRODUTOS_KEY) || '[]');
+  const idx = prods.indexOf('CPU');
+  if (idx !== -1) { prods[idx] = 'Computador'; localStorage.setItem(PRODUTOS_KEY, JSON.stringify(prods)); }
+  const tombs = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  let changed = false;
+  tombs.forEach(t => { if (t.produto === 'CPU') { t.produto = 'Computador'; changed = true; } });
+  if (changed) localStorage.setItem(STORAGE_KEY, JSON.stringify(tombs));
+})();
 
 function getMarcas() {
   return JSON.parse(localStorage.getItem(MARCAS_KEY) || '[]').sort((a, b) => a.localeCompare(b));
@@ -116,7 +127,9 @@ function addLog(acao, detalhes, nivel) {
 function proximoTombamento() {
   const lista = getTombamentos();
   if (lista.length === 0) return TOMBAMENTO_INICIO + 1;
-  return Math.max(...lista.map(t => t.numero_tombamento)) + 1;
+  const maxNum = Math.max(...lista.map(t => t.numero_tombamento));
+  // Tombamentos legados (<500) não afetam a numeração automática
+  return Math.max(maxNum + 1, TOMBAMENTO_INICIO + 1);
 }
 
 function gerarId() {
@@ -306,6 +319,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const produto = document.getElementById('produto').value;
     const marca = document.getElementById('marca').value.trim();
     const numero_serie = document.getElementById('numero_serie').value.trim();
+    const nome = document.getElementById('nome-equip').value.trim();
+    const detalhes = document.getElementById('detalhes-tecnicos').value.trim();
     if (!produto || !marca || !numero_serie) return;
 
     const lista = getTombamentos();
@@ -316,6 +331,8 @@ document.addEventListener('DOMContentLoaded', () => {
       produto,
       marca,
       numero_serie,
+      nome: nome || '',
+      detalhes: detalhes || '',
       status: 'Ativo',
       setor: 'TI',
       data_cadastro: new Date().toISOString()
@@ -451,6 +468,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tiUser) {
         // TI: pode tudo (sem o toggle que foi pro status)
         acoesHtml = `
+          <button class="btn-icon btn-edit" title="Editar" data-edit-id="${item.id}">
+            <i class="fas fa-pen"></i>
+          </button>
           <button class="btn-icon btn-transfer" title="Transferir" data-transfer-id="${item.id}">
             <i class="fas fa-share"></i>
           </button>
@@ -484,11 +504,15 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>
             <div class="produto-setor-cell">
               <span class="produto-nome">${escapeHtml(item.produto)}</span>
+              ${item.nome ? `<span class="produto-apelido" title="${escapeHtml(item.nome)}"><i class="fas fa-tag" style="font-size:.7rem;"></i> ${escapeHtml(item.nome)}</span>` : ''}
               <span class="produto-setor-tag"><i class="fas fa-building"></i> ${escapeHtml(item.setor || '—')}</span>
             </div>
           </td>
           <td>${escapeHtml(item.marca)}</td>
-          <td>${escapeHtml(item.numero_serie)}</td>
+          <td>
+            ${escapeHtml(item.numero_serie)}
+            ${item.detalhes ? `<div class="detalhes-cell" title="${escapeHtml(item.detalhes)}"><i class="fas fa-circle-info" style="color:var(--azul-400);font-size:.75rem;"></i> <small style="color:var(--cinza-400);font-size:.72rem;">${escapeHtml(item.detalhes.substring(0,40))}${item.detalhes.length > 40 ? '...' : ''}</small></div>` : ''}
+          </td>
           <td>
             <div class="status-cell">
               <span class="badge ${isAtivo ? 'badge-ativo' : 'badge-baixa'}">
@@ -506,6 +530,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event listeners
     tabelaBody.querySelectorAll('.btn-status-toggle').forEach(btn => {
       btn.addEventListener('click', () => toggleStatus(Number(btn.dataset.toggleId)));
+    });
+    tabelaBody.querySelectorAll('.btn-edit').forEach(btn => {
+      btn.addEventListener('click', () => abrirModalEditar(Number(btn.dataset.editId)));
     });
     tabelaBody.querySelectorAll('.btn-delete').forEach(btn => {
       btn.addEventListener('click', () =>
@@ -636,6 +663,15 @@ document.addEventListener('DOMContentLoaded', () => {
     transferirDestino.value = '';
     document.getElementById('transferir-justificativa').value = '';
 
+    // TI: transferência instantânea sem justificativa
+    if (isTI()) {
+      document.getElementById('transferir-justif-group').style.display = 'none';
+      document.getElementById('transferir-ti-note').style.display = 'flex';
+    } else {
+      document.getElementById('transferir-justif-group').style.display = '';
+      document.getElementById('transferir-ti-note').style.display = 'none';
+    }
+
     // Remove opção do setor atual do destino
     Array.from(transferirDestino.options).forEach(opt => {
       opt.hidden = (opt.value === item.setor);
@@ -649,6 +685,8 @@ document.addEventListener('DOMContentLoaded', () => {
     transferirId = null;
     transferirDestino.value = '';
     document.getElementById('transferir-justificativa').value = '';
+    document.getElementById('transferir-justif-group').style.display = '';
+    document.getElementById('transferir-ti-note').style.display = 'none';
   }
 
   btnFecharTransf.addEventListener('click', fecharModalTransferir);
@@ -662,7 +700,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const destino = transferirDestino.value;
     if (!destino) { showToast('Selecione o setor de destino.', true); return; }
     const justificativa = document.getElementById('transferir-justificativa').value.trim();
-    if (!justificativa) { showToast('Informe a justificativa da transferência.', true); return; }
+    if (!isTI() && !justificativa) { showToast('Informe a justificativa da transferência.', true); return; }
 
     const lista = getTombamentos();
     const item = lista.find(t => t.id === transferirId);
@@ -736,6 +774,103 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target === modalHistorico) modalHistorico.classList.remove('show');
   });
 
+  // ── EDITAR TOMBAMENTO (só TI) ─────────────────────────────────────────
+  const modalEditar = document.getElementById('modal-editar');
+  const formEditar = document.getElementById('form-editar');
+  const btnFecharEditar = document.getElementById('btn-fechar-editar');
+  const btnCancelarEditar = document.getElementById('btn-cancelar-editar');
+
+  function setupEditCombobox() {
+    const marcas = getMarcas();
+    const input = document.getElementById('editar-marca');
+    const dropdown = document.getElementById('editar-marca-dropdown');
+    const arrow = document.getElementById('editar-marca-arrow');
+
+    function renderOpts(filtro) {
+      const filtered = filtro ? marcas.filter(m => m.toLowerCase().includes(filtro.toLowerCase())) : marcas;
+      dropdown.innerHTML = filtered.length === 0
+        ? '<div class="combobox-no-result">Nenhuma marca encontrada</div>'
+        : filtered.map(m => `<div class="combobox-option">${escapeHtml(m)}</div>`).join('');
+      dropdown.querySelectorAll('.combobox-option').forEach(opt => {
+        opt.addEventListener('mousedown', (e) => { e.preventDefault(); input.value = opt.textContent; dropdown.classList.remove('open'); });
+      });
+    }
+
+    arrow.onclick = (e) => { e.preventDefault(); e.stopPropagation();
+      dropdown.classList.contains('open') ? dropdown.classList.remove('open') : (renderOpts(input.value), dropdown.classList.add('open'), input.focus());
+    };
+    input.oninput = () => { renderOpts(input.value); dropdown.classList.add('open'); };
+    input.onfocus = () => { renderOpts(input.value); dropdown.classList.add('open'); };
+  }
+
+  function abrirModalEditar(id) {
+    if (!isTI()) return;
+    const lista = getTombamentos();
+    const item = lista.find(t => t.id === id);
+    if (!item) return;
+
+    // Popular select de produtos
+    const selectProd = document.getElementById('editar-produto');
+    const produtos = getProdutos();
+    selectProd.innerHTML = '<option value="">Selecione o produto...</option>' +
+      produtos.map(p => `<option value="${escapeHtml(p)}"${p === item.produto ? ' selected' : ''}>${escapeHtml(p)}</option>`).join('');
+    // Se produto não está na lista atual, adicionar como opção
+    if (item.produto && !produtos.includes(item.produto)) {
+      selectProd.innerHTML += `<option value="${escapeHtml(item.produto)}" selected>${escapeHtml(item.produto)}</option>`;
+    }
+
+    document.getElementById('editar-id').value = item.id;
+    document.getElementById('editar-marca').value = item.marca || '';
+    document.getElementById('editar-serie').value = item.numero_serie || '';
+    document.getElementById('editar-setor').value = item.setor || 'TI';
+    document.getElementById('editar-nome').value = item.nome || '';
+    document.getElementById('editar-detalhes').value = item.detalhes || '';
+
+    setupEditCombobox();
+    modalEditar.classList.add('show');
+  }
+
+  function fecharModalEditar() {
+    modalEditar.classList.remove('show');
+    formEditar.reset();
+    document.getElementById('editar-marca-dropdown').classList.remove('open');
+  }
+
+  btnFecharEditar.addEventListener('click', fecharModalEditar);
+  btnCancelarEditar.addEventListener('click', fecharModalEditar);
+  modalEditar.addEventListener('click', (e) => { if (e.target === modalEditar) fecharModalEditar(); });
+
+  formEditar.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (!isTI()) return;
+    const id = Number(document.getElementById('editar-id').value);
+    const lista = getTombamentos();
+    const item = lista.find(t => t.id === id);
+    if (!item) return;
+
+    const produto = document.getElementById('editar-produto').value;
+    const marca = document.getElementById('editar-marca').value.trim();
+    const serie = document.getElementById('editar-serie').value.trim();
+    const setor = document.getElementById('editar-setor').value;
+    const nome = document.getElementById('editar-nome').value.trim();
+    const detalhes = document.getElementById('editar-detalhes').value.trim();
+
+    if (!produto || !marca || !serie || !setor) { showToast('Preencha os campos obrigatórios.', true); return; }
+
+    item.produto = produto;
+    item.marca = marca;
+    item.numero_serie = serie;
+    item.setor = setor;
+    item.nome = nome;
+    item.detalhes = detalhes;
+
+    saveTombamentos(lista);
+    addLog('Edição', `#${item.numero_tombamento} — ${produto} ${marca} editado`, 'sucesso');
+    showToast(`Tombamento #${item.numero_tombamento} atualizado!`);
+    fecharModalEditar();
+    carregarListagem();
+  });
+
   // ── DASHBOARD ──────────────────────────────────────────────────────────
   function carregarDashboard() {
     const lista = getTombamentos();
@@ -762,7 +897,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const iconesProduto = {
       'Monitor': 'fa-desktop',
       'Nobreak': 'fa-car-battery',
-      'CPU': 'fa-microchip',
+      'Computador': 'fa-computer',
+      'CPU': 'fa-computer',
       'DVR': 'fa-video',
       'Switch': 'fa-network-wired',
       'Microfone': 'fa-microphone',
@@ -1085,10 +1221,10 @@ document.addEventListener('DOMContentLoaded', () => {
       dropdown.classList.add('open');
     });
 
-    // Fechar ao clicar fora
+    // Fechar ao clicar fora (global — cobre todos os comboboxes)
     document.addEventListener('click', (e) => {
       if (!e.target.closest('.combobox-wrapper')) {
-        dropdown.classList.remove('open');
+        document.querySelectorAll('.combobox-dropdown.open').forEach(d => d.classList.remove('open'));
       }
     });
   }
@@ -1415,7 +1551,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Linha exemplo
     ws.addRow({ tomb: 501, prod: 'Monitor', marca: 'Samsung', serie: 'SN123456', setor: 'TI', status: 'Ativo' });
-    ws.addRow({ tomb: 502, prod: 'CPU', marca: 'Dell', serie: 'DL789012', setor: 'Guias', status: 'Ativo' });
+    ws.addRow({ tomb: 502, prod: 'Computador', marca: 'Dell', serie: 'DL789012', setor: 'Guias', status: 'Ativo' });
 
     const buffer = await wb.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
