@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Importar Dados - ASTIR Tombamento</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+    .container {
+      max-width: 700px;
+      width: 100%;
+      background: #1e293b;
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.3);
+    }
+    h1 {
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+      color: #60a5fa;
+    }
+    .subtitle {
+      color: #94a3b8;
+      margin-bottom: 32px;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat {
+      background: #0f172a;
+      padding: 16px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #60a5fa;
+    }
+    .stat-label {
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: 0.3s;
+      margin-bottom: 12px;
+    }
+    .btn-import {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: white;
+    }
+    .btn-import:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(37,99,235,0.4); }
+    .btn-import:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .btn-voltar {
+      background: #374151;
+      color: #e2e8f0;
+    }
+    .btn-voltar:hover { background: #4b5563; }
+    .log {
+      background: #0f172a;
+      border-radius: 10px;
+      padding: 16px;
+      margin-top: 20px;
+      max-height: 300px;
+      overflow-y: auto;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      display: none;
+    }
+    .log .ok { color: #10b981; }
+    .log .warn { color: #f59e0b; }
+    .log .err { color: #ef4444; }
+    .warning {
+      background: rgba(245,158,11,0.1);
+      border: 1px solid rgba(245,158,11,0.3);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 24px;
+      color: #fbbf24;
+      font-size: 0.9rem;
+    }
+    .warning i { margin-right: 8px; }
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="container">
+    <h1><i class="fas fa-database"></i> Importar Patrimônios</h1>
+    <p class="subtitle">Carregar dados do Excel "Patrimônios 2023 e 2025" no sistema</p>
+
+    <div class="warning">
+      <i class="fas fa-exclamation-triangle"></i>
+      <strong>Atenção:</strong> Esta ação vai <strong>substituir todos os dados atuais</strong> do sistema pelos dados da planilha.
+      Se já existirem dados, eles serão perdidos.
+    </div>
+
+    <div class="stats" id="stats" style="display:none;">
+      <div class="stat">
+        <div class="stat-num" id="s-tomb">0</div>
+        <div class="stat-label">Tombamentos</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="s-marcas">0</div>
+        <div class="stat-label">Marcas</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="s-materiais">0</div>
+        <div class="stat-label">Materiais</div>
+      </div>
+      <div class="stat">
+        <div class="stat-num" id="s-setores">0</div>
+        <div class="stat-label">Setores</div>
+      </div>
+    </div>
+
+    <button class="btn btn-import" id="btn-carregar" onclick="carregarDados()">
+      <i class="fas fa-download"></i> 1. Carregar dados do JSON
+    </button>
+
+    <button class="btn btn-import" id="btn-importar" onclick="importar()" disabled>
+      <i class="fas fa-upload"></i> 2. Importar para o sistema
+    </button>
+
+    <button class="btn btn-voltar" onclick="location.href='index.html'">
+      <i class="fas fa-arrow-left"></i> Voltar ao sistema
+    </button>
+
+    <div class="log" id="log"></div>
+  </div>
+
+  <script>
+    let dados = null;
+
+    function log(msg, tipo = 'ok') {
+      const el = document.getElementById('log');
+      el.style.display = 'block';
+      el.innerHTML += `<div class="${tipo}">› ${msg}</div>`;
+      el.scrollTop = el.scrollHeight;
+    }
+
+    async function carregarDados() {
+      try {
+        log('Buscando dados_importacao.json...');
+        const resp = await fetch('dados_importacao.json');
+        if (!resp.ok) throw new Error('Arquivo não encontrado');
+        dados = await resp.json();
+
+        document.getElementById('s-tomb').textContent = dados.tombamentos.length;
+        document.getElementById('s-marcas').textContent = dados.marcas.length;
+        document.getElementById('s-materiais').textContent = dados.produtos.length;
+
+        const setores = new Set(dados.tombamentos.map(t => t.setor));
+        document.getElementById('s-setores').textContent = setores.size;
+
+        document.getElementById('stats').style.display = 'grid';
+        document.getElementById('btn-importar').disabled = false;
+
+        log(`${dados.tombamentos.length} tombamentos carregados`, 'ok');
+        log(`${dados.marcas.length} marcas, ${dados.produtos.length} materiais`, 'ok');
+        log(`Setores: ${[...setores].sort().join(', ')}`, 'ok');
+        log('Clique em "Importar para o sistema" para gravar no localStorage', 'warn');
+
+      } catch (err) {
+        log('Erro: ' + err.message, 'err');
+      }
+    }
+
+    function importar() {
+      if (!dados) return;
+
+      if (!confirm('Tem certeza? Isso vai SUBSTITUIR todos os dados atuais do sistema.')) return;
+
+      try {
+        // Gravar tombamentos
+        localStorage.setItem('tombamentos_db', JSON.stringify(dados.tombamentos));
+        log(`${dados.tombamentos.length} tombamentos gravados`, 'ok');
+
+        // Limpar senhas antigas para recriar com novos setores
+        localStorage.removeItem('tombamento_users');
+        log('Senhas de setores resetadas (serão recriadas no login)', 'ok');
+
+        // Gravar histórico
+        localStorage.setItem('tombamento_historico', JSON.stringify(dados.historico));
+        log(`${dados.historico.length} registros de histórico gravados`, 'ok');
+
+        // Gravar marcas
+        localStorage.setItem('tombamento_marcas', JSON.stringify(dados.marcas));
+        log(`${dados.marcas.length} marcas gravadas`, 'ok');
+
+        // Gravar materiais
+        localStorage.setItem('tombamento_materiais', JSON.stringify(dados.produtos));
+        log(`${dados.produtos.length} materiais gravados`, 'ok');
+
+        log('✅ IMPORTAÇÃO CONCLUÍDA COM SUCESSO!', 'ok');
+        log('Agora volte ao sistema e faça login com TI para verificar.', 'ok');
+
+        document.getElementById('btn-importar').disabled = true;
+        document.getElementById('btn-importar').innerHTML = '<i class="fas fa-check"></i> Importação concluída!';
+
+      } catch (err) {
+        log('Erro ao gravar: ' + err.message, 'err');
+      }
+    }
+  </script>
+</body>
+</html>
