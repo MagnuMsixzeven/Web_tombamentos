@@ -26,20 +26,11 @@
         <form id="form-login">
           <div class="form-group">
             <label for="login-setor"><i class="fas fa-building"></i> Setor</label>
-            <select id="login-setor" required>
-              <option value="">Selecione o setor...</option>
-              <option value="TI">TI</option>
-              <option value="Guias">Guias</option>
-              <option value="DIREX" >DIREX</option>
-              <option value="Faturamento">Faturamento</option>
-              <option value="Cadastro">Cadastro</option>
-              <option value="Ambulatório">Ambulatório</option>
-              <option value="Financeiro">Financeiro</option>
-              <option value="Compras">Compras</option>
-              <option value="Jurídico">Jurídico</option>
-              <option value="RH">RH</option>
-              <option value="Almoxarifado">Almoxarifado</option>
-            </select>
+            <div class="combobox-wrapper">
+              <input type="text" id="login-setor" placeholder="Digite o nome do setor..." required autocomplete="off">
+              <button type="button" class="combobox-arrow" id="login-setor-arrow"><i class="fas fa-chevron-down"></i></button>
+              <div class="combobox-dropdown" id="login-setor-dropdown"></div>
+            </div>
           </div>
           <div class="form-group">
             <label for="login-senha"><i class="fas fa-lock"></i> Senha</label>
@@ -132,28 +123,28 @@
         </div>
 
         <div class="cards-grid">
-          <div class="stat-card">
+          <div class="stat-card clickable" onclick="irParaListagem('Todos')">
             <div class="stat-icon total"><i class="fas fa-boxes-stacked"></i></div>
             <div class="stat-info">
               <span class="stat-number" id="stat-total">0</span>
               <span class="stat-label">Total Cadastrados</span>
             </div>
           </div>
-          <div class="stat-card">
+          <div class="stat-card clickable" onclick="irParaListagem('Ativo')">
             <div class="stat-icon ativos"><i class="fas fa-check-circle"></i></div>
             <div class="stat-info">
               <span class="stat-number" id="stat-ativos">0</span>
               <span class="stat-label">Ativos</span>
             </div>
           </div>
-          <div class="stat-card">
+          <div class="stat-card clickable" onclick="irParaListagem('Em Baixa')">
             <div class="stat-icon baixa"><i class="fas fa-arrow-down"></i></div>
             <div class="stat-info">
               <span class="stat-number" id="stat-baixa">0</span>
               <span class="stat-label">Em Baixa</span>
             </div>
           </div>
-          <div class="stat-card">
+          <div class="stat-card clickable" onclick="abrirCadastroRapido()">
             <div class="stat-icon proximo"><i class="fas fa-hashtag"></i></div>
             <div class="stat-info">
               <span class="stat-number" id="stat-proximo">—</span>
@@ -163,14 +154,20 @@
         </div>
 
         <div class="card">
-          <h3><i class="fas fa-cubes"></i> Equipamentos por Tipo</h3>
-          <div id="chart-produtos" class="produtos-grid"></div>
+          <h3 class="card-toggle-header" onclick="toggleCardSection(this)">
+            <span><i class="fas fa-cubes"></i> Equipamentos por Tipo</span>
+            <i class="fas fa-chevron-up card-toggle-arrow"></i>
+          </h3>
+          <div id="chart-produtos" class="produtos-grid card-collapsible"></div>
         </div>
 
         <!-- Relatório por setor (só TI) -->
         <div class="card" id="card-setores" style="margin-top:20px; display:none;">
-          <h3><i class="fas fa-building"></i> Tombamentos por Setor</h3>
-          <div id="grid-setores" class="setores-grid"></div>
+          <h3 class="card-toggle-header" onclick="toggleCardSection(this)">
+            <span><i class="fas fa-building"></i> Tombamentos por Setor</span>
+            <i class="fas fa-chevron-up card-toggle-arrow"></i>
+          </h3>
+          <div id="grid-setores" class="setores-grid card-collapsible"></div>
         </div>
       </section>
 
@@ -196,11 +193,11 @@
         <div class="card">
           <div class="filtros-bar">
             <div class="filtro-group">
-              <input type="text" id="filtro-busca" placeholder="Buscar por marca, série ou nº tombamento..." class="filtro-input">
+              <input type="text" id="filtro-busca" placeholder="Buscar por material, marca, modelo, série ou PAT..." class="filtro-input">
             </div>
             <div class="filtro-group">
-              <select id="filtro-produto" class="filtro-select">
-                <option value="Todos">Todos os Produtos</option>
+              <select id="filtro-material" class="filtro-select">
+                <option value="Todos">Todos os Materiais</option>
               </select>
             </div>
             <div class="filtro-group">
@@ -214,16 +211,36 @@
               <select id="filtro-setor" class="filtro-select">
                 <option value="Todos">Todos os Setores</option>
                 <option value="TI">TI</option>
-                <option value="Guias">Guias</option>
-                <option value="DIREX">DIREX</option>
-                <option value="Faturamento">Faturamento</option>
-                <option value="Cadastro">Cadastro</option>
-                <option value="Ambulatório">Ambulatório</option>
-                <option value="Financeiro">Financeiro</option>
-                <option value="Compras">Compras</option>
-                <option value="Jurídico">Jurídico</option>
-                <option value="RH">RH</option>
                 <option value="Almoxarifado">Almoxarifado</option>
+                <option value="Ambulatorio">Ambulatorio</option>
+                <option value="ARRECADAÇÃO">ARRECADAÇÃO</option>
+                <option value="AUDITORIA">AUDITORIA</option>
+                <option value="Audiologia">Audiologia</option>
+                <option value="Cadastro">Cadastro</option>
+                <option value="CCIH">CCIH</option>
+                <option value="Compras">Compras</option>
+                <option value="Cozinha">Cozinha</option>
+                <option value="Descartado">Descartado</option>
+                <option value="DIREX">DIREX</option>
+                <option value="DIRETOR">DIRETOR</option>
+                <option value="Enfermagem">Enfermagem</option>
+                <option value="Farmacia">Farmacia</option>
+                <option value="Faturamento">Faturamento</option>
+                <option value="Financeiro">Financeiro</option>
+                <option value="Fisioterapia">Fisioterapia</option>
+                <option value="Guias">Guias</option>
+                <option value="INTERNAÇÃO">INTERNAÇÃO</option>
+                <option value="Juridico">Juridico</option>
+                <option value="Odontologia">Odontologia</option>
+                <option value="Polos">Polos</option>
+                <option value="Psicologia">Psicologia</option>
+                <option value="Recepcao">Recepcao</option>
+                <option value="RH">RH</option>
+                <option value="SECONF">SECONF</option>
+                <option value="Segurança do Trabalho">Segurança do Trabalho</option>
+                <option value="Servico Social">Servico Social</option>
+                <option value="SPA">SPA</option>
+                <option value="Não Catalogado">Não Catalogado</option>
               </select>
             </div>
           </div>
@@ -235,12 +252,14 @@
             <table class="tabela">
               <thead>
                 <tr>
-                  <th>Tombamento</th>
-                  <th>Produto / Setor</th>
-                  <th>Marca</th>
+                  <th class="th-sortable" id="th-pat" onclick="toggleOrdem()">
+                    PAT <i class="fas fa-arrow-up-short-wide" id="icone-ordem"></i>
+                  </th>
+                  <th>Material / Setor</th>
+                  <th>Marca / Modelo</th>
                   <th>Nº Série</th>
+                  <th>Cor</th>
                   <th>Status</th>
-                  <th>Data Cadastro</th>
                   <th>Ações</th>
                 </tr>
               </thead>
@@ -263,36 +282,57 @@
 
         <!-- Marcas -->
         <div class="card config-card">
-          <div class="config-card-header">
-            <div>
-              <h3><i class="fas fa-tag"></i> Marcas Cadastradas</h3>
-              <p class="config-desc">As marcas aqui ficam disponíveis como sugestão ao cadastrar equipamentos.</p>
+          <h3 class="card-toggle-header" onclick="toggleCardSection(this)">
+            <span><i class="fas fa-tag"></i> Marcas Cadastradas</span>
+            <i class="fas fa-chevron-up card-toggle-arrow"></i>
+          </h3>
+          <div class="card-collapsible">
+            <p class="config-desc" style="margin-bottom:14px;">As marcas aqui ficam disponíveis como sugestão ao cadastrar equipamentos.</p>
+            <div class="config-add-row">
+              <input type="text" id="input-nova-marca" placeholder="Nova marca (ex: Samsung, LG, TP-Link...)" class="filtro-input config-input">
+              <button class="btn-primary" id="btn-add-marca">
+                <i class="fas fa-plus"></i> Adicionar
+              </button>
             </div>
+            <div id="lista-marcas" class="config-tags-list"></div>
           </div>
-          <div class="config-add-row">
-            <input type="text" id="input-nova-marca" placeholder="Nova marca (ex: Samsung, LG, TP-Link...)" class="filtro-input config-input">
-            <button class="btn-primary" id="btn-add-marca">
-              <i class="fas fa-plus"></i> Adicionar
-            </button>
-          </div>
-          <div id="lista-marcas" class="config-tags-list"></div>
         </div>
 
-        <!-- Produtos -->
+        <!-- Materiais -->
         <div class="card config-card">
-          <div class="config-card-header">
-            <div>
-              <h3><i class="fas fa-desktop"></i> Produtos (tipos de equipamento)</h3>
-              <p class="config-desc">Os tipos de produto aparecem nos filtros e no cadastro.</p>
+          <h3 class="card-toggle-header" onclick="toggleCardSection(this)">
+            <span><i class="fas fa-desktop"></i> Materiais (tipos de equipamento)</span>
+            <i class="fas fa-chevron-up card-toggle-arrow"></i>
+          </h3>
+          <div class="card-collapsible">
+            <p class="config-desc" style="margin-bottom:14px;">Os tipos de material aparecem nos filtros e no cadastro.</p>
+            <div class="config-add-row">
+              <input type="text" id="input-novo-material" placeholder="Novo tipo de material (ex: IMPRESSORA, ROTEADOR...)" class="filtro-input config-input">
+              <button class="btn-primary" id="btn-add-material">
+                <i class="fas fa-plus"></i> Adicionar
+              </button>
             </div>
+            <div id="lista-materiais" class="config-tags-list"></div>
           </div>
-          <div class="config-add-row">
-            <input type="text" id="input-novo-produto" placeholder="Novo tipo de produto (ex: Impressora, Roteador...)" class="filtro-input config-input">
-            <button class="btn-primary" id="btn-add-produto">
-              <i class="fas fa-plus"></i> Adicionar
-            </button>
+        </div>
+
+        <!-- Setores e Senhas -->
+        <div class="card config-card">
+          <h3 class="card-toggle-header" onclick="toggleCardSection(this)">
+            <span><i class="fas fa-building"></i> Setores e Senhas</span>
+            <i class="fas fa-chevron-up card-toggle-arrow"></i>
+          </h3>
+          <div class="card-collapsible">
+            <p class="config-desc" style="margin-bottom:14px;">Gerencie os setores do sistema, suas senhas de acesso e permissões.</p>
+            <div class="config-add-row">
+              <input type="text" id="input-novo-setor" placeholder="Nome do novo setor..." class="filtro-input config-input" style="flex:2;">
+              <input type="text" id="input-nova-senha-setor" placeholder="Senha de acesso" class="filtro-input config-input" style="flex:1;">
+              <button class="btn-primary" id="btn-add-setor">
+                <i class="fas fa-plus"></i> Adicionar
+              </button>
+            </div>
+            <div id="lista-setores" class="config-setores-list"></div>
           </div>
-          <div id="lista-produtos" class="config-tags-list"></div>
         </div>
 
         <!-- Importar Excel -->
@@ -300,7 +340,7 @@
           <div class="config-card-header">
             <div>
               <h3><i class="fas fa-file-excel"></i> Importar Tombamentos via Excel</h3>
-              <p class="config-desc">Importe tombamentos anteriores de uma planilha Excel (.xlsx). O arquivo deve conter as colunas: <strong>Tombamento</strong>, <strong>Produto</strong>, <strong>Marca</strong>, <strong>Número de Série</strong>, <strong>Setor</strong>, <strong>Status</strong>.</p>
+              <p class="config-desc">Importe tombamentos anteriores de uma planilha Excel (.xlsx). O arquivo deve conter colunas como: <strong>PAT</strong>, <strong>Material</strong>, <strong>Marca</strong>, <strong>Modelo</strong>, <strong>Setor</strong>, <strong>Status</strong>.</p>
             </div>
           </div>
           <div class="config-add-row">
@@ -316,10 +356,10 @@
               <table class="tabela import-table">
                 <thead>
                   <tr>
-                    <th>Tombamento</th>
-                    <th>Produto</th>
+                    <th>PAT</th>
+                    <th>Material</th>
                     <th>Marca</th>
-                    <th>Nº Série</th>
+                    <th>Modelo</th>
                     <th>Setor</th>
                     <th>Status</th>
                   </tr>
@@ -406,15 +446,15 @@
       <form id="form-cadastro">
         <div class="form-row">
           <div class="form-group">
-            <label for="produto"><i class="fas fa-desktop"></i> Produto</label>
-            <select id="produto" required>
-              <option value="">Selecione o produto...</option>
+            <label for="cad-material"><i class="fas fa-desktop"></i> Material</label>
+            <select id="cad-material" required>
+              <option value="">Selecione o material...</option>
             </select>
           </div>
           <div class="form-group">
-            <label for="marca"><i class="fas fa-tag"></i> Marca</label>
+            <label for="cad-marca"><i class="fas fa-tag"></i> Marca</label>
             <div class="combobox-wrapper">
-              <input type="text" id="marca" placeholder="Selecione ou digite a marca..." required autocomplete="off">
+              <input type="text" id="cad-marca" placeholder="Selecione ou digite a marca..." required autocomplete="off">
               <button type="button" class="combobox-arrow" id="marca-arrow"><i class="fas fa-chevron-down"></i></button>
               <div class="combobox-dropdown" id="marca-dropdown"></div>
             </div>
@@ -422,23 +462,33 @@
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="numero_serie"><i class="fas fa-fingerprint"></i> Número de Série</label>
-            <input type="text" id="numero_serie" placeholder="Número de série do equipamento" required>
+            <label for="cad-modelo"><i class="fas fa-cube"></i> Modelo</label>
+            <input type="text" id="cad-modelo" placeholder="Modelo do equipamento">
           </div>
           <div class="form-group">
-            <label><i class="fas fa-hashtag"></i> Tombamento (Automático)</label>
-            <div class="tombamento-preview" id="tombamento-preview">
-              <span class="tombamento-numero">—</span>
-            </div>
+            <label for="cad-cor"><i class="fas fa-palette"></i> Cor</label>
+            <input type="text" id="cad-cor" placeholder="Ex: PRETO, BRANCO...">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="cad-numero_serie"><i class="fas fa-fingerprint"></i> Número de Série</label>
+            <input type="text" id="cad-numero_serie" placeholder="Número de série do equipamento">
+          </div>
+          <div class="form-group">
+            <label for="cad-processo"><i class="fas fa-file-lines"></i> Processo</label>
+            <input type="text" id="cad-processo" placeholder="Nº do processo (se houver)">
           </div>
         </div>
         <div class="form-group" style="margin-bottom:16px;">
-          <label for="nome-equip"><i class="fas fa-id-badge"></i> Nome / Identificação <small class="badge-opcional">Opcional</small></label>
-          <input type="text" id="nome-equip" placeholder="Ex: PC Recepção, Computador da Diretoria...">
+          <label for="cad-descricao"><i class="fas fa-microchip"></i> Descrição / Detalhes Técnicos</label>
+          <textarea id="cad-descricao" rows="2" placeholder="Processador, Memória RAM, HD, detalhes..."></textarea>
         </div>
         <div class="form-group" style="margin-bottom:16px;">
-          <label for="detalhes-tecnicos"><i class="fas fa-microchip"></i> Detalhes Técnicos <small class="badge-opcional">Opcional</small></label>
-          <textarea id="detalhes-tecnicos" rows="2" placeholder="Memória RAM, Processador, Fonte, HD, etc..."></textarea>
+          <label><i class="fas fa-hashtag"></i> Tombamento (Automático)</label>
+          <div class="tombamento-preview" id="tombamento-preview">
+            <span class="tombamento-numero">—</span>
+          </div>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn-secondary" id="btn-cancelar-cadastro">Cancelar</button>
@@ -486,16 +536,36 @@
         <select id="transferir-destino" required>
           <option value="">Selecione o destino...</option>
           <option value="TI">TI</option>
-          <option value="Guias">Guias</option>
-          <option value="DIREX">DIREX</option>
-          <option value="Faturamento">Faturamento</option>
-          <option value="Cadastro">Cadastro</option>
-          <option value="Ambulatório">Ambulatório</option>
-          <option value="Financeiro">Financeiro</option>
-          <option value="Compras">Compras</option>
-          <option value="Jurídico">Jurídico</option>
-          <option value="RH">RH</option>
           <option value="Almoxarifado">Almoxarifado</option>
+          <option value="Ambulatorio">Ambulatorio</option>
+          <option value="ARRECADAÇÃO">ARRECADAÇÃO</option>
+          <option value="AUDITORIA">AUDITORIA</option>
+          <option value="Audiologia">Audiologia</option>
+          <option value="Cadastro">Cadastro</option>
+          <option value="CCIH">CCIH</option>
+          <option value="Compras">Compras</option>
+          <option value="Cozinha">Cozinha</option>
+          <option value="Descartado">Descartado</option>
+          <option value="DIREX">DIREX</option>
+          <option value="DIRETOR">DIRETOR</option>
+          <option value="Enfermagem">Enfermagem</option>
+          <option value="Farmacia">Farmacia</option>
+          <option value="Faturamento">Faturamento</option>
+          <option value="Financeiro">Financeiro</option>
+          <option value="Fisioterapia">Fisioterapia</option>
+          <option value="Guias">Guias</option>
+          <option value="INTERNAÇÃO">INTERNAÇÃO</option>
+          <option value="Juridico">Juridico</option>
+          <option value="Odontologia">Odontologia</option>
+          <option value="Polos">Polos</option>
+          <option value="Psicologia">Psicologia</option>
+          <option value="Recepcao">Recepcao</option>
+          <option value="RH">RH</option>
+          <option value="SECONF">SECONF</option>
+          <option value="Segurança do Trabalho">Segurança do Trabalho</option>
+          <option value="Servico Social">Servico Social</option>
+          <option value="SPA">SPA</option>
+          <option value="Não Catalogado">Não Catalogado</option>
         </select>
       </div>
       <div id="transferir-ti-note" class="ti-transfer-note" style="display:none;">
@@ -546,9 +616,9 @@
         <input type="hidden" id="editar-id">
         <div class="form-row">
           <div class="form-group">
-            <label for="editar-produto"><i class="fas fa-desktop"></i> Produto</label>
-            <select id="editar-produto" required>
-              <option value="">Selecione o produto...</option>
+            <label for="editar-material"><i class="fas fa-desktop"></i> Material</label>
+            <select id="editar-material" required>
+              <option value="">Selecione o material...</option>
             </select>
           </div>
           <div class="form-group">
@@ -562,33 +632,63 @@
         </div>
         <div class="form-row">
           <div class="form-group">
+            <label for="editar-modelo"><i class="fas fa-cube"></i> Modelo</label>
+            <input type="text" id="editar-modelo" placeholder="Modelo do equipamento">
+          </div>
+          <div class="form-group">
+            <label for="editar-cor"><i class="fas fa-palette"></i> Cor</label>
+            <input type="text" id="editar-cor" placeholder="Ex: PRETO, BRANCO...">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
             <label for="editar-serie"><i class="fas fa-fingerprint"></i> Número de Série</label>
-            <input type="text" id="editar-serie" placeholder="Número de série do equipamento" required>
+            <input type="text" id="editar-serie" placeholder="Número de série do equipamento">
           </div>
           <div class="form-group">
             <label for="editar-setor"><i class="fas fa-building"></i> Setor</label>
             <select id="editar-setor" required>
               <option value="TI">TI</option>
-              <option value="Guias">Guias</option>
-              <option value="DIREX">DIREX</option>
-              <option value="Faturamento">Faturamento</option>
-              <option value="Cadastro">Cadastro</option>
-              <option value="Ambulatório">Ambulatório</option>
-              <option value="Financeiro">Financeiro</option>
-              <option value="Compras">Compras</option>
-              <option value="Jurídico">Jurídico</option>
-              <option value="RH">RH</option>
               <option value="Almoxarifado">Almoxarifado</option>
+              <option value="Ambulatorio">Ambulatorio</option>
+              <option value="ARRECADAÇÃO">ARRECADAÇÃO</option>
+              <option value="AUDITORIA">AUDITORIA</option>
+              <option value="Audiologia">Audiologia</option>
+              <option value="Cadastro">Cadastro</option>
+              <option value="CCIH">CCIH</option>
+              <option value="Compras">Compras</option>
+              <option value="Cozinha">Cozinha</option>
+              <option value="Descartado">Descartado</option>
+              <option value="DIREX">DIREX</option>
+              <option value="DIRETOR">DIRETOR</option>
+              <option value="Enfermagem">Enfermagem</option>
+              <option value="Farmacia">Farmacia</option>
+              <option value="Faturamento">Faturamento</option>
+              <option value="Financeiro">Financeiro</option>
+              <option value="Fisioterapia">Fisioterapia</option>
+              <option value="Guias">Guias</option>
+              <option value="INTERNAÇÃO">INTERNAÇÃO</option>
+              <option value="Juridico">Juridico</option>
+              <option value="Odontologia">Odontologia</option>
+              <option value="Polos">Polos</option>
+              <option value="Psicologia">Psicologia</option>
+              <option value="Recepcao">Recepcao</option>
+              <option value="RH">RH</option>
+              <option value="SECONF">SECONF</option>
+              <option value="Segurança do Trabalho">Segurança do Trabalho</option>
+              <option value="Servico Social">Servico Social</option>
+              <option value="SPA">SPA</option>
+              <option value="Não Catalogado">Não Catalogado</option>
             </select>
           </div>
         </div>
         <div class="form-group" style="margin-bottom:16px;">
-          <label for="editar-nome"><i class="fas fa-id-badge"></i> Nome / Identificação <small class="badge-opcional">Opcional</small></label>
-          <input type="text" id="editar-nome" placeholder="Ex: PC Recepção, Computador da Diretoria...">
+          <label for="editar-processo"><i class="fas fa-file-lines"></i> Processo</label>
+          <input type="text" id="editar-processo" placeholder="Nº do processo (se houver)">
         </div>
         <div class="form-group" style="margin-bottom:0;">
-          <label for="editar-detalhes"><i class="fas fa-microchip"></i> Detalhes Técnicos <small class="badge-opcional">Opcional</small></label>
-          <textarea id="editar-detalhes" rows="3" placeholder="Memória RAM, Processador, Fonte, HD, etc..."></textarea>
+          <label for="editar-descricao"><i class="fas fa-microchip"></i> Descrição / Detalhes Técnicos</label>
+          <textarea id="editar-descricao" rows="3" placeholder="Processador, Memória RAM, HD, detalhes..."></textarea>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn-secondary" id="btn-cancelar-editar">Cancelar</button>
