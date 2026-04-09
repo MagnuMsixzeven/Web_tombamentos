@@ -491,6 +491,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const numero_serie = document.getElementById('cad-numero_serie').value.trim();
     const processo = document.getElementById('cad-processo').value.trim();
     const descricao = document.getElementById('cad-descricao').value.trim();
+    const setorDestino = document.getElementById('cad-setor').value || 'TI';
     if (!material || !marca) return;
 
     const lista = getTombamentos();
@@ -504,7 +505,7 @@ document.addEventListener('DOMContentLoaded', () => {
       descricao: descricao || '',
       marca,
       modelo: modelo || '',
-      setor: 'TI',
+      setor: setorDestino,
       numero_serie: numero_serie || '',
       status: 'Ativo',
       processo: processo || '',
@@ -591,7 +592,13 @@ document.addEventListener('DOMContentLoaded', () => {
       lista = lista.filter(t => t.material === filtroMaterial);
     }
     if (filtroStatus !== 'Todos') {
-      lista = lista.filter(t => t.status === filtroStatus);
+      if (filtroStatus === 'Recentes') {
+        const limite = new Date();
+        limite.setDate(limite.getDate() - 30);
+        lista = lista.filter(t => t.data_cadastro && new Date(t.data_cadastro) >= limite);
+      } else {
+        lista = lista.filter(t => t.status === filtroStatus);
+      }
     }
     if (busca) {
       lista = lista.filter(t =>
@@ -1275,7 +1282,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (filtroMaterial !== 'Todos') lista = lista.filter(t => t.material === filtroMaterial);
-    if (filtroStatus !== 'Todos') lista = lista.filter(t => t.status === filtroStatus);
+    if (filtroStatus !== 'Todos') {
+      if (filtroStatus === 'Recentes') {
+        const limite = new Date(); limite.setDate(limite.getDate() - 30);
+        lista = lista.filter(t => t.data_cadastro && new Date(t.data_cadastro) >= limite);
+      } else {
+        lista = lista.filter(t => t.status === filtroStatus);
+      }
+    }
     if (busca) {
       lista = lista.filter(t =>
         (t.marca || '').toLowerCase().includes(busca) ||
@@ -1478,7 +1492,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const valStatus = filtroStatus.value;
     filtroStatus.innerHTML = `<option value="Todos">Todos os Status (${todos.length})</option>
       <option value="Ativo">Ativo (${contagemStatus['Ativo']})</option>
-      <option value="Em Baixa">Em Baixa (${contagemStatus['Em Baixa']})</option>`;
+      <option value="Em Baixa">Em Baixa (${contagemStatus['Em Baixa']})</option>
+      <option value="Recentes">+ Recentes (30 dias)</option>`;
     filtroStatus.value = valStatus || 'Todos';
 
     // Atualizar selects de setores dinamicamente
