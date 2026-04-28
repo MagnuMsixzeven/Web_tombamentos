@@ -874,8 +874,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target === modalOverlay) fecharModalOverlay();
   });
 
-  modalConfirmar.addEventListener('click', () => {
+  modalConfirmar.addEventListener('click', async () => {
     if (excluirSetorNome) {
+      if (window.MODO_API) {
+        try {
+          await API.deleteSetor(excluirSetorNome);
+          const nomeRemovido = excluirSetorNome;
+          fecharModalOverlay();
+          renderSetores();
+          popularSelectsSetores();
+          if (typeof popularLoginSetores === 'function') popularLoginSetores();
+          showToast(`Setor "${nomeRemovido}" removido.`);
+          addLog('Config', `Setor ${nomeRemovido} removido do sistema`, 'alerta');
+        } catch (e) { showToast(e.message || 'Erro ao remover setor.', true); fecharModalOverlay(); }
+        return;
+      }
       // Excluir setor
       const users = getUsers();
       delete users[excluirSetorNome];
@@ -1706,6 +1719,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderSetores() {
+    if (window.MODO_API) { renderSetoresAPI(); return; }
     const users = getUsers();
     const container = document.getElementById('lista-setores');
     if (!container) {
@@ -1803,14 +1817,121 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // renderSetores em modo API: busca nomes do servidor, senhas nunca trafegam
+  async function renderSetoresAPI() {
+    const container = document.getElementById('lista-setores');
+    if (!container) return;
+    let nomes;
+    try {
+      nomes = await API.getSetores();
+    } catch (e) {
+      container.innerHTML = '<p class="config-empty">Erro ao carregar setores.</p>';
+      return;
+    }
+    if (!nomes || nomes.length === 0) {
+      container.innerHTML = '<p class="config-empty">Nenhum setor cadastrado.</p>';
+      return;
+    }
+    nomes.sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    container.innerHTML = nomes.map(setor => {
+      const isTIsetor = setor === 'TI';
+      return `
+        <div class="config-setor-row ${isTIsetor ? 'setor-ti' : ''}">
+          <div class="setor-info">
+            <i class="fas fa-building" style="opacity:0.5;"></i>
+            <span class="setor-nome">${escapeHtml(setor)}</span>
+            ${isTIsetor ? '<span class="setor-badge-admin">ADMIN</span>' : ''}
+          </div>
+          <div class="setor-actions">
+            <div class="setor-senha-group">
+              <input type="password" class="setor-senha-input" value="" placeholder="••••••••" data-setor="${escapeHtml(setor)}" readonly>
+              <button class="btn-icon setor-toggle-senha" data-setor="${escapeHtml(setor)}" title="Mostrar/ocultar senha">
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+            <button class="btn-icon setor-editar-senha" data-setor="${escapeHtml(setor)}" title="Editar senha">
+              <i class="fas fa-pen"></i>
+            </button>
+            ${!isTIsetor ? `<button class="btn-icon setor-remover" data-setor="${escapeHtml(setor)}" title="Remover setor">
+              <i class="fas fa-trash" style="color:#ef4444;"></i>
+            </button>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+    container.querySelectorAll('.setor-toggle-senha').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const setor = btn.dataset.setor;
+        const input = container.querySelector(`.setor-senha-input[data-setor="${setor}"]`);
+        const icon = btn.querySelector('i');
+        if (input.type === 'password') { input.type = 'text'; icon.className = 'fas fa-eye-slash'; }
+        else { input.type = 'password'; icon.className = 'fas fa-eye'; }
+      });
+    });
+
+    container.querySelectorAll('.setor-editar-senha').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const setor = btn.dataset.setor;
+        const input = container.querySelector(`.setor-senha-input[data-setor="${setor}"]`);
+        if (input.readOnly) {
+          input.readOnly = false;
+          input.type = 'text';
+          input.value = '';
+          input.placeholder = 'Nova senha...';
+          input.focus();
+          btn.innerHTML = '<i class="fas fa-check" style="color:#10b981;"></i>';
+          btn.title = 'Salvar senha';
+        } else {
+          const novaSenha = input.value.trim();
+          if (!novaSenha) { showToast('A senha não pode ficar vazia.', true); return; }
+          try {
+            await API.updateSetor(setor, novaSenha);
+            input.readOnly = true;
+            input.type = 'password';
+            input.value = '';
+            input.placeholder = '••••••••';
+            btn.innerHTML = '<i class="fas fa-pen"></i>';
+            btn.title = 'Editar senha';
+            showToast(`Senha do setor "${setor}" atualizada!`);
+            addLog('Config', `Senha do setor ${setor} alterada`, 'alerta');
+          } catch (e) { showToast(e.message || 'Erro ao salvar.', true); }
+        }
+      });
+    });
+
+    container.querySelectorAll('.setor-remover').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const setor = btn.dataset.setor;
+        excluirSetorNome = setor;
+        modalMsg.textContent = `Remover o setor "${setor}"? Os tombamentos desse setor NÃO serão apagados.`;
+        document.getElementById('modal-titulo').textContent = 'Remover Setor';
+        modalConfirmar.className = 'btn-danger';
+        modalOverlay.classList.add('show');
+      });
+    });
+  }
+
   // Adicionar setor
-  document.getElementById('btn-add-setor').addEventListener('click', () => {
+  document.getElementById('btn-add-setor').addEventListener('click', async () => {
     const inputNome = document.getElementById('input-novo-setor');
     const inputSenha = document.getElementById('input-nova-senha-setor');
     const nome = inputNome.value.trim();
     const senha = inputSenha.value.trim();
     if (!nome) { showToast('Digite o nome do setor.', true); return; }
     if (!senha) { showToast('Digite a senha do setor.', true); return; }
+    if (window.MODO_API) {
+      try {
+        await API.addSetor(nome, senha);
+        inputNome.value = '';
+        inputSenha.value = '';
+        renderSetores();
+        popularSelectsSetores();
+        if (typeof popularLoginSetores === 'function') popularLoginSetores();
+        showToast(`Setor "${nome}" adicionado!`);
+        addLog('Config', `Novo setor "${nome}" criado`, 'sucesso');
+      } catch (e) { showToast(e.message || 'Erro ao adicionar setor.', true); }
+      return;
+    }
     const users = getUsers();
     if (nome in users) { showToast('Esse setor já existe.', true); return; }
     users[nome] = senha;
