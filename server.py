@@ -17,25 +17,23 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__, static_folder='public', static_url_path='')
 
-# [SEC] Secret key a partir de variável de ambiente — nunca hardcoded no fonte.
-# Em produção: set SECRET_KEY=<chave-aleatória-longa> antes de iniciar.
+# secret key via variável de ambiente
 _env_key = os.environ.get('SECRET_KEY')
 if not _env_key:
     import secrets
     _env_key = secrets.token_hex(32)
-    print('[AVISO DE SEGURANÇA] SECRET_KEY não definida. Uma chave temporária foi gerada.')
-    print('                    Sessões serão invalidadas ao reiniciar. Defina SECRET_KEY no ambiente.')
+    print('[AVISO] SECRET_KEY não definida. Sessões serão invalidadas ao reiniciar.')
 app.secret_key = _env_key
 
-# [SEC] Configurações de cookie seguro
+# cookies
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
 
-# [SEC] Statuses válidos — whitelist
+# statuses válidos
 VALID_STATUSES = {'Ativo', 'Em Baixa'}
 
-# [SEC] Tamanho máximo por campo (caracteres)
+# tamanho máximo por campo
 MAX_FIELD = 512
 MAX_DESC  = 2048
 
@@ -104,7 +102,7 @@ def init_db():
         );
     """)
 
-    # Seed inicial de setores — senhas armazenadas com hash (PBKDF2-SHA256)
+    # seed setores — senhas com hash
     if conn.execute("SELECT COUNT(*) FROM setores").fetchone()[0] == 0:
         setores = [
             ('TI', 'ti123'),
@@ -144,7 +142,7 @@ def init_db():
             [(nome, generate_password_hash(senha)) for nome, senha in setores]
         )
     else:
-        # [SEC] Migração: hashear senhas em texto plano deixadas por versões antigas
+        # migração: hashear senhas antigas em texto plano
         rows = conn.execute("SELECT nome, senha FROM setores").fetchall()
         for r in rows:
             pwd = r['senha']
@@ -190,7 +188,7 @@ def require_ti():
 def require_login():
     if 'setor' not in session:
         return jsonify({'error': 'Não autenticado.'}), 401
-    # [SEC] Verificar expiração da sessão (8 horas)
+    # expiração de sessão (8 horas)
     login_time = session.get('login_time')
     if login_time:
         try:
@@ -263,7 +261,7 @@ def listar_setores():
     err = require_login()
     if err: return err
     conn = get_db()
-    # [SEC] Nunca devolver senhas (mesmo hashed) para clientes — apenas nomes
+    # apenas nomes — sem senhas
     rows = conn.execute("SELECT nome FROM setores ORDER BY nome COLLATE NOCASE").fetchall()
     conn.close()
     return jsonify([r['nome'] for r in rows])
@@ -281,7 +279,6 @@ def criar_setor():
 
     conn = get_db()
     try:
-        # [SEC] Hashear senha antes de persistir
         conn.execute("INSERT INTO setores VALUES (?,?)", (nome, generate_password_hash(senha)))
         conn.commit()
     except sqlite3.IntegrityError:
@@ -302,7 +299,6 @@ def atualizar_setor(nome):
     if not senha:
         return jsonify({'error': 'Senha não pode ser vazia.'}), 400
     conn = get_db()
-    # [SEC] Hashear senha antes de persistir
     conn.execute("UPDATE setores SET senha=? WHERE nome=?", (generate_password_hash(senha), nome))
     conn.commit()
     conn.close()
@@ -348,13 +344,13 @@ def criar_tombamento():
     if err: return err
     data = request.get_json()
 
-    # [SEC] Validar status contra whitelist
+    # validar status
     status = data.get('status', 'Ativo')
     if status not in VALID_STATUSES:
         return jsonify({'error': 'Status inválido.'}), 400
 
     conn = get_db()
-    # Próximo número de tombamento
+    # próximo número de tombamento
     row = conn.execute("SELECT MAX(numero_tombamento) as m FROM tombamentos").fetchone()
     proximo = (row['m'] or 0) + 1
 
@@ -389,7 +385,7 @@ def atualizar_tombamento(tomb_id):
     if err: return err
     data = request.get_json()
 
-    # [SEC] Validar status contra whitelist
+    # validar status
     status = data.get('status', 'Ativo')
     if status not in VALID_STATUSES:
         return jsonify({'error': 'Status inválido.'}), 400
@@ -585,9 +581,9 @@ def add_historico():
         data.get('tipo', ''),
         data.get('de', ''),
         data.get('para', ''),
-        session['setor'],          # [SEC] Sempre usar setor da sessão — jamais confiar no cliente
+        session['setor'],
         data.get('justificativa', ''),
-        datetime.now().isoformat() # [SEC] Data gerada pelo servidor, não pelo cliente
+        datetime.now().isoformat()
     ))
     conn.commit()
     conn.close()
@@ -618,8 +614,8 @@ def add_log():
     """, (
         datetime.now().isoformat(),
         session.get('setor', 'Sistema'),
-        str(data.get('acao', ''))[:MAX_FIELD],      # [SEC] Limitar tamanho
-        str(data.get('detalhes', ''))[:MAX_DESC],   # [SEC] Limitar tamanho
+        str(data.get('acao', ''))[:MAX_FIELD],
+        str(data.get('detalhes', ''))[:MAX_DESC],
         data.get('nivel', 'info') if data.get('nivel') in ('info', 'sucesso', 'alerta', 'erro') else 'info'
     ))
     conn.commit()
@@ -726,11 +722,6 @@ def remover_material(nome):
 
 @app.route('/api/migrar', methods=['POST'])
 def migrar():
-    """
-    Recebe dump completo do localStorage e popula o banco SQLite.
-    Requer chave de migração para segurança.
-    """
-    # [SEC] Exige sessão TI válida ANTES de verificar a chave — defesa em profundidade
     err = require_ti()
     if err: return err
     data = request.get_json()
@@ -743,7 +734,6 @@ def migrar():
     users = data.get('users', {})
     importados_setores = 0
     for nome, senha in users.items():
-        # [SEC] Hashear senha ao migrar (pode vir em texto plano do localStorage)
         pwd = str(senha)
         if not pwd.startswith('pbkdf2:') and not pwd.startswith('scrypt:'):
             pwd = generate_password_hash(pwd)
@@ -850,7 +840,6 @@ def migrar():
 
 @app.route('/api/sync/tombamentos', methods=['POST'])
 def sync_tombamentos():
-    # [SEC] Operação destrutiva (DELETE + re-insert) — exige TI
     err = require_ti()
     if err: return err
     lista = request.get_json()
@@ -886,7 +875,6 @@ def sync_tombamentos():
 
 @app.route('/api/sync/marcas', methods=['POST'])
 def sync_marcas():
-    # [SEC] Exige TI para sobrescrever tabela inteira
     err = require_ti()
     if err: return err
     lista = request.get_json()
@@ -904,7 +892,6 @@ def sync_marcas():
 
 @app.route('/api/sync/materiais', methods=['POST'])
 def sync_materiais():
-    # [SEC] Exige TI para sobrescrever tabela inteira
     err = require_ti()
     if err: return err
     lista = request.get_json()
@@ -922,7 +909,6 @@ def sync_materiais():
 
 @app.route('/api/sync/setores', methods=['POST'])
 def sync_setores():
-    # [SEC] Apenas TI pode sincronizar setores
     err = require_ti()
     if err: return err
     users = request.get_json()
@@ -930,7 +916,6 @@ def sync_setores():
         return jsonify({'error': 'Dados inválidos'}), 400
     conn = get_db()
     for nome, senha in users.items():
-        # [SEC] Hashear senhas ao sincronizar
         pwd = str(senha)
         if not pwd.startswith('pbkdf2:') and not pwd.startswith('scrypt:'):
             pwd = generate_password_hash(pwd)
@@ -950,6 +935,5 @@ if __name__ == '__main__':
     print("  Banco:  tombamento.db")
     print("=" * 55)
     port = int(os.environ.get("PORT", 5050))
-    # [SEC] host="127.0.0.1" — escuta apenas localmente.
-    # Para expor na rede, use um proxy reverso (nginx/gunicorn) com HTTPS.
+    # host local — use nginx/gunicorn para expor na rede
     app.run(debug=False, host="127.0.0.1", port=port)
