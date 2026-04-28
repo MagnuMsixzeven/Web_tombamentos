@@ -17,6 +17,14 @@ const MATERIAIS_KEY = 'tombamento_materiais';
 const LOGS_KEY = 'tombamento_logs';
 const TOMBAMENTO_INICIO = 0;
 
+// Cache de setores para MODO_API
+let _setoresCacheAPI = null;
+
+async function refreshSetoresCache() {
+  if (!window.MODO_API) return;
+  try { _setoresCacheAPI = (await API.getSetores()).sort((a, b) => a.localeCompare(b, 'pt-BR')); } catch (e) { /* mantém cache atual */ }
+}
+
 // Catálogos padrão
 const MARCAS_DEFAULT = ['Samsung', 'LG', 'Dell', 'HP', 'Lenovo', 'TP-Link', 'Intelbras', 'AOC', 'Multilaser', 'Positivo'];
 const MATERIAIS_DEFAULT = ['COMPUTADOR', 'MONITOR', 'NOBREAK', 'IMPRESSORA', 'DVR', 'SWITCH', 'CÂMERA', 'RACK', 'ROTEADOR', 'AR CONDICIONADO'];
@@ -354,7 +362,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (filtroSetorGroup) filtroSetorGroup.style.display = 'none';
     }
 
-    popularSelectsMateriais();
+    if (window.MODO_API) {
+      refreshSetoresCache().then(() => { popularSelectsMateriais(); });
+    } else {
+      popularSelectsMateriais();
+    }
     popularDatalistMarcas();
     carregarDashboard();
   }
@@ -881,6 +893,7 @@ document.addEventListener('DOMContentLoaded', () => {
           await API.deleteSetor(excluirSetorNome);
           const nomeRemovido = excluirSetorNome;
           fecharModalOverlay();
+          await refreshSetoresCache();
           renderSetores();
           popularSelectsSetores();
           if (typeof popularLoginSetores === 'function') popularLoginSetores();
@@ -1514,8 +1527,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function popularSelectsSetores() {
-    const users = JSON.parse(localStorage.getItem(USERS_KEY) || '{}');
-    const setores = Object.keys(users).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const setores = window.MODO_API
+      ? (_setoresCacheAPI || [])
+      : Object.keys(JSON.parse(localStorage.getItem(USERS_KEY) || '{}')).sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
     // Filtro setor (listagem)
     const filtroSetor = document.getElementById('filtro-setor');
@@ -1924,6 +1938,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await API.addSetor(nome, senha);
         inputNome.value = '';
         inputSenha.value = '';
+        await refreshSetoresCache();
         renderSetores();
         popularSelectsSetores();
         if (typeof popularLoginSetores === 'function') popularLoginSetores();
