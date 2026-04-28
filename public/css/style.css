@@ -966,6 +966,35 @@ body {
 
 /* DARK MODE */
 
+/* Sobrescreve variáveis de cor para que todos os elementos respondam automaticamente */
+[data-theme="dark"] {
+  --azul-900: #f3f4f6;
+  --azul-800: #e2e8f0;
+  --azul-700: #93c5fd;
+  --azul-600: #60a5fa;
+  --azul-500: #60a5fa;
+  --azul-400: #93c5fd;
+  --azul-300: #bfdbfe;
+  --azul-200: #374151;
+  --azul-100: #1e2d44;
+  --azul-50:  #1a243a;
+  --branco: #252b3b;
+  --cinza-50:  #252b3b;
+  --cinza-100: #2d3444;
+  --cinza-200: #374151;
+  --cinza-300: #4b5563;
+  --cinza-400: #6b7280;
+  --cinza-500: #9ca3af;
+  --cinza-600: #d1d5db;
+  --cinza-700: #e2e8f0;
+  --verde-bg: #052e16;
+  --verde-text: #86efac;
+  --vermelho-bg: #3b0a0a;
+  --vermelho-text: #fca5a5;
+  --sombra-sm: 0 1px 3px rgba(0,0,0,0.3);
+  --sombra-md: 0 2px 6px rgba(0,0,0,0.4);
+}
+
 [data-theme="dark"] body { background: #1a1f2e; color: #d1d5db; }
 [data-theme="dark"] .main-content { background: #1a1f2e; }
 
