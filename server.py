@@ -11,11 +11,33 @@ Uso:
 import os
 import sqlite3
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, send_from_directory, session
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__, static_folder='public', static_url_path='')
-app.secret_key = 'astir-tombamento-secret-2026-xK9!pL2'
+
+# [SEC] Secret key a partir de variável de ambiente — nunca hardcoded no fonte.
+# Em produção: set SECRET_KEY=<chave-aleatória-longa> antes de iniciar.
+_env_key = os.environ.get('SECRET_KEY')
+if not _env_key:
+    import secrets
+    _env_key = secrets.token_hex(32)
+    print('[AVISO DE SEGURANÇA] SECRET_KEY não definida. Uma chave temporária foi gerada.')
+    print('                    Sessões serão invalidadas ao reiniciar. Defina SECRET_KEY no ambiente.')
+app.secret_key = _env_key
+
+# [SEC] Configurações de cookie seguro
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
+
+# [SEC] Statuses válidos — whitelist
+VALID_STATUSES = {'Ativo', 'Em Baixa'}
+
+# [SEC] Tamanho máximo por campo (caracteres)
+MAX_FIELD = 512
+MAX_DESC  = 2048
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'tombamento.db')
 
@@ -82,7 +104,7 @@ def init_db():
         );
     """)
 
-    # Seed inicial de setores
+    # Seed inicial de setores — senhas armazenadas com hash (PBKDF2-SHA256)
     if conn.execute("SELECT COUNT(*) FROM setores").fetchone()[0] == 0:
         setores = [
             ('TI', 'ti123'),
@@ -117,7 +139,20 @@ def init_db():
             ('SPA', 'spa123'),
             ('Não Catalogado', 'naocatalogado123'),
         ]
-        conn.executemany("INSERT OR IGNORE INTO setores VALUES (?,?)", setores)
+        conn.executemany(
+            "INSERT OR IGNORE INTO setores VALUES (?,?)",
+            [(nome, generate_password_hash(senha)) for nome, senha in setores]
+        )
+    else:
+        # [SEC] Migração: hashear senhas em texto plano deixadas por versões antigas
+        rows = conn.execute("SELECT nome, senha FROM setores").fetchall()
+        for r in rows:
+            pwd = r['senha']
+            if not pwd.startswith('pbkdf2:') and not pwd.startswith('scrypt:'):
+                conn.execute(
+                    "UPDATE setores SET senha=? WHERE nome=?",
+                    (generate_password_hash(pwd), r['nome'])
+                )
 
     # Seed inicial de marcas
     if conn.execute("SELECT COUNT(*) FROM marcas").fetchone()[0] == 0:
@@ -155,6 +190,17 @@ def require_ti():
 def require_login():
     if 'setor' not in session:
         return jsonify({'error': 'Não autenticado.'}), 401
+    # [SEC] Verificar expiração da sessão (8 horas)
+    login_time = session.get('login_time')
+    if login_time:
+        try:
+            age = datetime.now() - datetime.fromisoformat(login_time)
+            if age > timedelta(hours=8):
+                session.clear()
+                return jsonify({'error': 'Sessão expirada. Faça login novamente.'}), 401
+        except (ValueError, TypeError):
+            session.clear()
+            return jsonify({'error': 'Sessão inválida.'}), 401
     return None
 
 
@@ -189,7 +235,7 @@ def login():
     row = conn.execute("SELECT senha FROM setores WHERE nome = ?", (setor,)).fetchone()
     conn.close()
 
-    if not row or row['senha'] != senha:
+    if not row or not check_password_hash(row['senha'], senha):
         return jsonify({'error': 'Setor ou senha incorretos.'}), 401
 
     session['setor'] = setor
@@ -214,12 +260,13 @@ def get_session():
 
 @app.route('/api/setores', methods=['GET'])
 def listar_setores():
-    err = require_login(); 
+    err = require_login()
     if err: return err
     conn = get_db()
-    rows = conn.execute("SELECT nome, senha FROM setores ORDER BY nome COLLATE NOCASE").fetchall()
+    # [SEC] Nunca devolver senhas (mesmo hashed) para clientes — apenas nomes
+    rows = conn.execute("SELECT nome FROM setores ORDER BY nome COLLATE NOCASE").fetchall()
     conn.close()
-    return jsonify(rows_to_list(rows))
+    return jsonify([r['nome'] for r in rows])
 
 
 @app.route('/api/setores', methods=['POST'])
@@ -234,7 +281,8 @@ def criar_setor():
 
     conn = get_db()
     try:
-        conn.execute("INSERT INTO setores VALUES (?,?)", (nome, senha))
+        # [SEC] Hashear senha antes de persistir
+        conn.execute("INSERT INTO setores VALUES (?,?)", (nome, generate_password_hash(senha)))
         conn.commit()
     except sqlite3.IntegrityError:
         conn.close()
@@ -254,7 +302,8 @@ def atualizar_setor(nome):
     if not senha:
         return jsonify({'error': 'Senha não pode ser vazia.'}), 400
     conn = get_db()
-    conn.execute("UPDATE setores SET senha=? WHERE nome=?", (senha, nome))
+    # [SEC] Hashear senha antes de persistir
+    conn.execute("UPDATE setores SET senha=? WHERE nome=?", (generate_password_hash(senha), nome))
     conn.commit()
     conn.close()
     return jsonify({'ok': True})
@@ -299,6 +348,11 @@ def criar_tombamento():
     if err: return err
     data = request.get_json()
 
+    # [SEC] Validar status contra whitelist
+    status = data.get('status', 'Ativo')
+    if status not in VALID_STATUSES:
+        return jsonify({'error': 'Status inválido.'}), 400
+
     conn = get_db()
     # Próximo número de tombamento
     row = conn.execute("SELECT MAX(numero_tombamento) as m FROM tombamentos").fetchone()
@@ -311,16 +365,16 @@ def criar_tombamento():
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
         proximo,
-        data.get('pat', ''),
-        data.get('material', ''),
-        data.get('cor', ''),
-        data.get('descricao', ''),
-        data.get('marca', ''),
-        data.get('modelo', ''),
-        data.get('numero_serie', ''),
-        data.get('status', 'Ativo'),
-        data.get('setor', 'TI'),
-        data.get('processo', ''),
+        str(data.get('pat', ''))[:MAX_FIELD],
+        str(data.get('material', ''))[:MAX_FIELD],
+        str(data.get('cor', ''))[:MAX_FIELD],
+        str(data.get('descricao', ''))[:MAX_DESC],
+        str(data.get('marca', ''))[:MAX_FIELD],
+        str(data.get('modelo', ''))[:MAX_FIELD],
+        str(data.get('numero_serie', ''))[:MAX_FIELD],
+        status,
+        str(data.get('setor', 'TI'))[:MAX_FIELD],
+        str(data.get('processo', ''))[:MAX_FIELD],
         datetime.now().isoformat()
     ))
     tomb_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -334,6 +388,12 @@ def atualizar_tombamento(tomb_id):
     err = require_ti()
     if err: return err
     data = request.get_json()
+
+    # [SEC] Validar status contra whitelist
+    status = data.get('status', 'Ativo')
+    if status not in VALID_STATUSES:
+        return jsonify({'error': 'Status inválido.'}), 400
+
     conn = get_db()
     conn.execute("""
         UPDATE tombamentos SET
@@ -341,15 +401,15 @@ def atualizar_tombamento(tomb_id):
             numero_serie=?, status=?, setor=?, processo=?
         WHERE id=?
     """, (
-        data.get('material', ''),
-        data.get('cor', ''),
-        data.get('descricao', ''),
-        data.get('marca', ''),
-        data.get('modelo', ''),
-        data.get('numero_serie', ''),
-        data.get('status', 'Ativo'),
-        data.get('setor', ''),
-        data.get('processo', ''),
+        str(data.get('material', ''))[:MAX_FIELD],
+        str(data.get('cor', ''))[:MAX_FIELD],
+        str(data.get('descricao', ''))[:MAX_DESC],
+        str(data.get('marca', ''))[:MAX_FIELD],
+        str(data.get('modelo', ''))[:MAX_FIELD],
+        str(data.get('numero_serie', ''))[:MAX_FIELD],
+        status,
+        str(data.get('setor', ''))[:MAX_FIELD],
+        str(data.get('processo', ''))[:MAX_FIELD],
         tomb_id
     ))
     conn.commit()
@@ -525,9 +585,9 @@ def add_historico():
         data.get('tipo', ''),
         data.get('de', ''),
         data.get('para', ''),
-        data.get('por', ''),
+        session['setor'],          # [SEC] Sempre usar setor da sessão — jamais confiar no cliente
         data.get('justificativa', ''),
-        data.get('data', datetime.now().isoformat())
+        datetime.now().isoformat() # [SEC] Data gerada pelo servidor, não pelo cliente
     ))
     conn.commit()
     conn.close()
@@ -558,9 +618,9 @@ def add_log():
     """, (
         datetime.now().isoformat(),
         session.get('setor', 'Sistema'),
-        data.get('acao', ''),
-        data.get('detalhes', ''),
-        data.get('nivel', 'info')
+        str(data.get('acao', ''))[:MAX_FIELD],      # [SEC] Limitar tamanho
+        str(data.get('detalhes', ''))[:MAX_DESC],   # [SEC] Limitar tamanho
+        data.get('nivel', 'info') if data.get('nivel') in ('info', 'sucesso', 'alerta', 'erro') else 'info'
     ))
     conn.commit()
     conn.close()
@@ -670,8 +730,11 @@ def migrar():
     Recebe dump completo do localStorage e popula o banco SQLite.
     Requer chave de migração para segurança.
     """
+    # [SEC] Exige sessão TI válida ANTES de verificar a chave — defesa em profundidade
+    err = require_ti()
+    if err: return err
     data = request.get_json()
-    if data.get('chave') != 'ASTIR_MIGRAR_2026':
+    if data.get('chave') != os.environ.get('MIGRATE_KEY', 'ASTIR_MIGRAR_2026'):
         return jsonify({'error': 'Chave de migração inválida.'}), 403
 
     conn = get_db()
@@ -680,7 +743,11 @@ def migrar():
     users = data.get('users', {})
     importados_setores = 0
     for nome, senha in users.items():
-        conn.execute("INSERT OR REPLACE INTO setores VALUES (?,?)", (nome, str(senha)))
+        # [SEC] Hashear senha ao migrar (pode vir em texto plano do localStorage)
+        pwd = str(senha)
+        if not pwd.startswith('pbkdf2:') and not pwd.startswith('scrypt:'):
+            pwd = generate_password_hash(pwd)
+        conn.execute("INSERT OR REPLACE INTO setores VALUES (?,?)", (nome, pwd))
         importados_setores += 1
 
     # ── Marcas
@@ -783,8 +850,9 @@ def migrar():
 
 @app.route('/api/sync/tombamentos', methods=['POST'])
 def sync_tombamentos():
-    if 'setor' not in session:
-        return jsonify({'ok': True})
+    # [SEC] Operação destrutiva (DELETE + re-insert) — exige TI
+    err = require_ti()
+    if err: return err
     lista = request.get_json()
     if not isinstance(lista, list):
         return jsonify({'error': 'Dados inválidos'}), 400
@@ -818,8 +886,9 @@ def sync_tombamentos():
 
 @app.route('/api/sync/marcas', methods=['POST'])
 def sync_marcas():
-    if 'setor' not in session:
-        return jsonify({'ok': True})
+    # [SEC] Exige TI para sobrescrever tabela inteira
+    err = require_ti()
+    if err: return err
     lista = request.get_json()
     if not isinstance(lista, list):
         return jsonify({'error': 'Dados inválidos'}), 400
@@ -835,8 +904,9 @@ def sync_marcas():
 
 @app.route('/api/sync/materiais', methods=['POST'])
 def sync_materiais():
-    if 'setor' not in session:
-        return jsonify({'ok': True})
+    # [SEC] Exige TI para sobrescrever tabela inteira
+    err = require_ti()
+    if err: return err
     lista = request.get_json()
     if not isinstance(lista, list):
         return jsonify({'error': 'Dados inválidos'}), 400
@@ -852,14 +922,19 @@ def sync_materiais():
 
 @app.route('/api/sync/setores', methods=['POST'])
 def sync_setores():
-    if session.get('setor') != 'TI':
-        return jsonify({'ok': True})  # Apenas TI pode sincronizar setores
+    # [SEC] Apenas TI pode sincronizar setores
+    err = require_ti()
+    if err: return err
     users = request.get_json()
     if not isinstance(users, dict):
         return jsonify({'error': 'Dados inválidos'}), 400
     conn = get_db()
     for nome, senha in users.items():
-        conn.execute("INSERT OR REPLACE INTO setores VALUES (?,?)", (nome, str(senha)))
+        # [SEC] Hashear senhas ao sincronizar
+        pwd = str(senha)
+        if not pwd.startswith('pbkdf2:') and not pwd.startswith('scrypt:'):
+            pwd = generate_password_hash(pwd)
+        conn.execute("INSERT OR REPLACE INTO setores VALUES (?,?)", (nome, pwd))
     conn.commit()
     conn.close()
     return jsonify({'ok': True})
@@ -875,4 +950,6 @@ if __name__ == '__main__':
     print("  Banco:  tombamento.db")
     print("=" * 55)
     port = int(os.environ.get("PORT", 5050))
-    app.run(debug=False, host="0.0.0.0", port=port)
+    # [SEC] host="127.0.0.1" — escuta apenas localmente.
+    # Para expor na rede, use um proxy reverso (nginx/gunicorn) com HTTPS.
+    app.run(debug=False, host="127.0.0.1", port=port)
