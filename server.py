@@ -28,6 +28,7 @@ app.secret_key = _env_key
 # cookies
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('HTTPS', '').lower() in ('1', 'true', 'yes')
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=8)
 
 # statuses válidos
@@ -97,10 +98,49 @@ def init_db():
             nome TEXT PRIMARY KEY
         );
 
+        CREATE TABLE IF NOT EXISTS ti_usuarios (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            login      TEXT UNIQUE NOT NULL,
+            senha      TEXT NOT NULL,
+            senha_plain TEXT NOT NULL DEFAULT ''
+        );
+
         CREATE TABLE IF NOT EXISTS materiais (
             nome TEXT PRIMARY KEY
         );
     """)
+
+    # Migração: adicionar coluna senha_plain para visualização pelo TI
+    try:
+        conn.execute("ALTER TABLE setores ADD COLUMN senha_plain TEXT NOT NULL DEFAULT ''")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # coluna já existe
+
+    # Migração: adicionar coluna login (nome de acesso, pode ser o nome do gerente)
+    try:
+        conn.execute("ALTER TABLE setores ADD COLUMN login TEXT NOT NULL DEFAULT ''")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # coluna já existe
+
+    # Migração: adicionar coluna cargo (setor | diretor)
+    try:
+        conn.execute("ALTER TABLE setores ADD COLUMN cargo TEXT NOT NULL DEFAULT 'setor'")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass  # coluna já existe
+
+    # Migração: popular login = nome para setores existentes sem login definido
+    conn.execute("UPDATE setores SET login=nome WHERE login IS NULL OR login=''")
+    conn.commit()
+
+    # Garantir índice único para login
+    try:
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_setores_login ON setores(login)")
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass
 
     # seed setores — senhas com hash
     if conn.execute("SELECT COUNT(*) FROM setores").fetchone()[0] == 0:
@@ -138,8 +178,8 @@ def init_db():
             ('Não Catalogado', 'naocatalogado123'),
         ]
         conn.executemany(
-            "INSERT OR IGNORE INTO setores VALUES (?,?)",
-            [(nome, generate_password_hash(senha)) for nome, senha in setores]
+            "INSERT OR IGNORE INTO setores (nome, senha, senha_plain, login, cargo) VALUES (?,?,?,?,?)",
+            [(nome, generate_password_hash(senha), senha, nome, 'setor') for nome, senha in setores]
         )
     else:
         # migração: hashear senhas antigas em texto plano
@@ -151,6 +191,38 @@ def init_db():
                     "UPDATE setores SET senha=? WHERE nome=?",
                     (generate_password_hash(pwd), r['nome'])
                 )
+        # migração: popular senha_plain para setores do seed original
+        _known_plain = {
+            'TI': 'ti123', 'Almoxarifado': 'almoxarifado123', 'Ambulatorio': 'ambulatorio123',
+            'ARRECADAÇÃO': 'arrecadacao123', 'AUDITORIA': 'auditoria123', 'Audiologia': 'audiologia123',
+            'Cadastro': 'cadastro123', 'CCIH': 'ccih123', 'Compras': 'compras123',
+            'Cozinha': 'cozinha123', 'Descartado': 'descartado123', 'DIREX': 'direx123',
+            'DIRETOR': 'diretor123', 'Enfermagem': 'enfermagem123', 'Farmacia': 'farmacia123',
+            'Faturamento': 'faturamento123', 'Financeiro': 'financeiro123', 'Fisioterapia': 'fisioterapia123',
+            'Guias': 'guias123', 'INTERNAÇÃO': 'internacao123', 'Juridico': 'juridico123',
+            'Odontologia': 'odontologia123', 'Polos': 'polos123', 'Psicologia': 'psicologia123',
+            'Recepcao': 'recepcao123', 'RH': 'rh123', 'SECONF': 'seconf123',
+            'Segurança do Trabalho': 'seguranca123', 'Servico Social': 'servicosocial123',
+            'SPA': 'spa123', 'Não Catalogado': 'naocatalogado123',
+        }
+        for _nome, _senha in _known_plain.items():
+            conn.execute(
+                "UPDATE setores SET senha_plain=? WHERE nome=? AND (senha_plain IS NULL OR senha_plain='')",
+                (_senha, _nome)
+            )
+
+    # Seed inicial de usuários TI
+    if conn.execute("SELECT COUNT(*) FROM ti_usuarios").fetchone()[0] == 0:
+        _ti_seed = [
+            ('Carlos',  'carlos123'),
+            ('Mateus',  'mateus123'),
+            ('Roberto', 'roberto123'),
+            ('Carvalho','carvalho123'),
+        ]
+        conn.executemany(
+            "INSERT OR IGNORE INTO ti_usuarios (login, senha, senha_plain) VALUES (?,?,?)",
+            [(l, generate_password_hash(s), s) for l, s in _ti_seed]
+        )
 
     # Seed inicial de marcas
     if conn.execute("SELECT COUNT(*) FROM marcas").fetchone()[0] == 0:
@@ -224,21 +296,39 @@ def index():
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.get_json()
-    setor = (data.get('setor') or '').strip()
+    login_input = (data.get('setor') or '').strip()  # campo se chama 'setor' no frontend
     senha = (data.get('senha') or '').strip()
-    if not setor or not senha:
-        return jsonify({'error': 'Setor e senha são obrigatórios.'}), 400
+    if not login_input or not senha:
+        return jsonify({'error': 'Login e senha são obrigatórios.'}), 400
 
     conn = get_db()
-    row = conn.execute("SELECT senha FROM setores WHERE nome = ?", (setor,)).fetchone()
+
+    # 1) verifica se é um usuário TI (case-insensitive)
+    ti_row = conn.execute(
+        "SELECT id, login, senha FROM ti_usuarios WHERE LOWER(login) = LOWER(?)",
+        (login_input,)
+    ).fetchone()
+    if ti_row and check_password_hash(ti_row['senha'], senha):
+        conn.close()
+        session['setor'] = 'TI'
+        session['ti_usuario_login'] = ti_row['login']
+        session['login_time'] = datetime.now().isoformat()
+        return jsonify({'ok': True, 'setor': 'TI', 'tiUsuario': ti_row['login']})
+
+    # 2) verifica setores normais (case-insensitive — login ou nome)
+    row = conn.execute(
+        "SELECT nome, senha, cargo FROM setores WHERE LOWER(login) = LOWER(?) OR LOWER(nome) = LOWER(?)",
+        (login_input, login_input)
+    ).fetchone()
     conn.close()
 
     if not row or not check_password_hash(row['senha'], senha):
-        return jsonify({'error': 'Setor ou senha incorretos.'}), 401
+        return jsonify({'error': 'Login ou senha incorretos.'}), 401
 
-    session['setor'] = setor
+    session['setor'] = row['nome']
+    session['cargo'] = row['cargo']  # 'setor' ou 'diretor'
     session['login_time'] = datetime.now().isoformat()
-    return jsonify({'ok': True, 'setor': setor})
+    return jsonify({'ok': True, 'setor': row['nome'], 'cargo': row['cargo']})
 
 
 @app.route('/api/logout', methods=['POST'])
@@ -250,8 +340,111 @@ def logout():
 @app.route('/api/session')
 def get_session():
     if 'setor' in session:
-        return jsonify({'setor': session['setor'], 'loginTime': session.get('login_time')})
+        return jsonify({
+            'setor': session['setor'],
+            'cargo': session.get('cargo', 'ti' if session['setor'] == 'TI' else 'setor'),
+            'loginTime': session.get('login_time')
+        })
     return jsonify({'setor': None})
+
+
+@app.route('/api/logins', methods=['GET'])
+def todos_logins():
+    """Retorna todos os logins disponíveis (setores + usuários TI) para o dropdown de login."""
+    conn = get_db()
+    setores_logins = [r['login'] for r in conn.execute(
+        "SELECT login FROM setores ORDER BY login COLLATE NOCASE"
+    ).fetchall()]
+    ti_logins = [r['login'] for r in conn.execute(
+        "SELECT login FROM ti_usuarios ORDER BY login COLLATE NOCASE"
+    ).fetchall()]
+    conn.close()
+    return jsonify(sorted(setores_logins + ti_logins, key=str.casefold))
+
+
+# ─── Usuários TI ───────────────────────────────────────────────────────────────
+
+@app.route('/api/ti/usuarios', methods=['GET'])
+def listar_ti_usuarios():
+    err = require_ti()
+    if err: return err
+    conn = get_db()
+    rows = conn.execute("SELECT id, login, senha_plain FROM ti_usuarios ORDER BY login COLLATE NOCASE").fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route('/api/ti/usuarios', methods=['POST'])
+def criar_ti_usuario():
+    err = require_ti()
+    if err: return err
+    data = request.get_json()
+    novo_login = (data.get('login') or '').strip()
+    senha      = (data.get('senha') or '').strip()
+    if not novo_login or not senha:
+        return jsonify({'error': 'Login e senha são obrigatórios.'}), 400
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO ti_usuarios (login, senha, senha_plain) VALUES (?,?,?)",
+            (novo_login, generate_password_hash(senha), senha)
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        return jsonify({'error': f'Login "{novo_login}" já está em uso.'}), 409
+    new_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    conn.close()
+    return jsonify({'ok': True, 'id': new_id}), 201
+
+
+@app.route('/api/ti/usuarios/<int:uid>', methods=['PUT'])
+def atualizar_ti_usuario(uid):
+    err = require_ti()
+    if err: return err
+    data = request.get_json()
+    novo_login = (data.get('login') or '').strip()
+    senha      = (data.get('senha') or '').strip()
+    if not novo_login and not senha:
+        return jsonify({'error': 'Informe o novo login ou a nova senha.'}), 400
+    conn = get_db()
+    if novo_login:
+        dup = conn.execute(
+            "SELECT 1 FROM ti_usuarios WHERE login=? AND id!=?", (novo_login, uid)
+        ).fetchone()
+        if dup:
+            conn.close()
+            return jsonify({'error': f'Login "{novo_login}" já está em uso.'}), 409
+    if novo_login and senha:
+        conn.execute(
+            "UPDATE ti_usuarios SET login=?, senha=?, senha_plain=? WHERE id=?",
+            (novo_login, generate_password_hash(senha), senha, uid)
+        )
+    elif novo_login:
+        conn.execute("UPDATE ti_usuarios SET login=? WHERE id=?", (novo_login, uid))
+    else:
+        conn.execute(
+            "UPDATE ti_usuarios SET senha=?, senha_plain=? WHERE id=?",
+            (generate_password_hash(senha), senha, uid)
+        )
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
+
+
+@app.route('/api/ti/usuarios/<int:uid>', methods=['DELETE'])
+def remover_ti_usuario(uid):
+    err = require_ti()
+    if err: return err
+    conn = get_db()
+    total = conn.execute("SELECT COUNT(*) FROM ti_usuarios").fetchone()[0]
+    if total <= 1:
+        conn.close()
+        return jsonify({'error': 'Deve existir ao menos um usuário TI.'}), 403
+    conn.execute("DELETE FROM ti_usuarios WHERE id=?", (uid,))
+    conn.commit()
+    conn.close()
+    return jsonify({'ok': True})
 
 
 # ─── Setores ───────────────────────────────────────────────────────────────────
@@ -267,6 +460,28 @@ def listar_setores():
     return jsonify([r['nome'] for r in rows])
 
 
+@app.route('/api/setores/logins', methods=['GET'])
+def listar_logins():
+    """Retorna lista de logins para o dropdown da tela de login."""
+    conn = get_db()
+    rows = conn.execute("SELECT login FROM setores ORDER BY login COLLATE NOCASE").fetchall()
+    conn.close()
+    return jsonify([r['login'] for r in rows])
+
+
+@app.route('/api/setores/credenciais', methods=['GET'])
+def get_credenciais():
+    """Retorna nome + login + senha em texto para visualização — apenas TI."""
+    err = require_ti()
+    if err: return err
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT nome, login, senha_plain, cargo FROM setores ORDER BY nome COLLATE NOCASE"
+    ).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
 @app.route('/api/setores', methods=['POST'])
 def criar_setor():
     err = require_ti()
@@ -279,7 +494,10 @@ def criar_setor():
 
     conn = get_db()
     try:
-        conn.execute("INSERT INTO setores VALUES (?,?)", (nome, generate_password_hash(senha)))
+        conn.execute(
+            "INSERT INTO setores (nome, senha, senha_plain, login) VALUES (?,?,?,?)",
+            (nome, generate_password_hash(senha), senha, nome)  # login = nome por padrão
+        )
         conn.commit()
     except sqlite3.IntegrityError:
         conn.close()
@@ -292,14 +510,48 @@ def criar_setor():
 def atualizar_setor(nome):
     err = require_ti()
     if err: return err
-    if nome == 'TI':
-        return jsonify({'error': 'Não é permitido modificar o setor TI via API.'}), 403
     data = request.get_json()
     senha = (data.get('senha') or '').strip()
-    if not senha:
-        return jsonify({'error': 'Senha não pode ser vazia.'}), 400
+    novo_login = (data.get('login') or '').strip()
+    novo_cargo = (data.get('cargo') or '').strip()
+
+    CARGOS_VALIDOS = {'setor', 'diretor'}
+    if novo_cargo and novo_cargo not in CARGOS_VALIDOS:
+        return jsonify({'error': 'Cargo inválido.'}), 400
+
+    if not senha and not novo_login and not novo_cargo:
+        return jsonify({'error': 'Informe a nova senha, login ou cargo.'}), 400
+
     conn = get_db()
-    conn.execute("UPDATE setores SET senha=? WHERE nome=?", (generate_password_hash(senha), nome))
+    if senha and novo_login:
+        # verifica se login já existe em outro setor
+        dup = conn.execute(
+            "SELECT 1 FROM setores WHERE login=? AND nome!=?", (novo_login, nome)
+        ).fetchone()
+        if dup:
+            conn.close()
+            return jsonify({'error': f'O login "{novo_login}" já está em uso.'}), 409
+        conn.execute(
+            "UPDATE setores SET senha=?, senha_plain=?, login=? WHERE nome=?",
+            (generate_password_hash(senha), senha, novo_login, nome)
+        )
+    elif senha:
+        conn.execute(
+            "UPDATE setores SET senha=?, senha_plain=? WHERE nome=?",
+            (generate_password_hash(senha), senha, nome)
+        )
+    elif novo_login:  # só login
+        dup = conn.execute(
+            "SELECT 1 FROM setores WHERE login=? AND nome!=?", (novo_login, nome)
+        ).fetchone()
+        if dup:
+            conn.close()
+            return jsonify({'error': f'O login "{novo_login}" já está em uso.'}), 409
+        conn.execute("UPDATE setores SET login=? WHERE nome=?", (novo_login, nome))
+
+    if novo_cargo:
+        conn.execute("UPDATE setores SET cargo=? WHERE nome=?", (novo_cargo, nome))
+
     conn.commit()
     conn.close()
     return jsonify({'ok': True})
@@ -327,7 +579,8 @@ def listar_tombamentos():
 
     conn = get_db()
     setor_usuario = session['setor']
-    if setor_usuario == 'TI':
+    cargo_usuario = session.get('cargo', 'setor')
+    if setor_usuario == 'TI' or cargo_usuario == 'diretor':
         rows = conn.execute("SELECT * FROM tombamentos ORDER BY numero_tombamento").fetchall()
     else:
         rows = conn.execute(
@@ -572,18 +825,32 @@ def add_historico():
     err = require_login()
     if err: return err
     data = request.get_json()
+
+    tombamento_id = data.get('tombamento', 0)
+    tipo  = str(data.get('tipo',  ''))[:MAX_FIELD]
+    de    = str(data.get('de',    ''))[:MAX_FIELD]
+    para  = str(data.get('para',  ''))[:MAX_FIELD]
+    just  = str(data.get('justificativa', ''))[:MAX_DESC]
+
     conn = get_db()
+    # valida que o tombamento existe (por numero_tombamento)
+    if tombamento_id and not conn.execute(
+        "SELECT 1 FROM tombamentos WHERE numero_tombamento=?", (tombamento_id,)
+    ).fetchone():
+        conn.close()
+        return jsonify({'error': 'Tombamento não encontrado.'}), 404
+
     conn.execute("""
         INSERT INTO historico (tombamento, tipo, de, para, por, justificativa, data)
         VALUES (?,?,?,?,?,?,?)
     """, (
-        data.get('tombamento', 0),
-        data.get('tipo', ''),
-        data.get('de', ''),
-        data.get('para', ''),
-        session['setor'],
-        data.get('justificativa', ''),
-        datetime.now().isoformat()
+        tombamento_id,
+        tipo,
+        de,
+        para,
+        session['setor'],   # sempre do servidor — não aceita 'por' do cliente
+        just,
+        datetime.now().isoformat()  # sempre timestamp do servidor
     ))
     conn.commit()
     conn.close()

@@ -225,8 +225,8 @@ function getSession() {
   return s ? JSON.parse(s) : null;
 }
 
-function setSession(setor) {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ setor, loginTime: new Date().toISOString() }));
+function setSession(setor, cargo) {
+  sessionStorage.setItem(SESSION_KEY, JSON.stringify({ setor, cargo: cargo || 'setor', loginTime: new Date().toISOString() }));
 }
 
 function clearSession() {
@@ -236,6 +236,19 @@ function clearSession() {
 function isTI() {
   const s = getSession();
   return s && s.setor === 'TI';
+}
+
+function isDiretor() {
+  const s = getSession();
+  return s && s.cargo === 'diretor';
+}
+
+function isAdmin() {
+  return isTI();
+}
+
+function podeVerTudo() {
+  return isTI() || isDiretor();
 }
 
 function meuSetor() {
@@ -311,11 +324,12 @@ document.addEventListener('DOMContentLoaded', () => {
           loginError.textContent = err.error || 'Setor ou senha incorretos.';
           return;
         }
+        const data = await res.json();
         await loadFromServer();
         loginError.textContent = '';
-        setSession(setor);
-        addLog('Login', `Setor ${setor} entrou no sistema`, 'info');
-        mostrarApp(setor);
+        setSession(data.setor || setor, data.cargo || (data.setor === 'TI' ? 'ti' : 'setor'));
+        addLog('Login', `Setor ${data.setor || setor} entrou no sistema`, 'info');
+        mostrarApp(data.setor || setor);
       } catch(err) {
         loginError.textContent = 'Erro ao conectar ao servidor.';
       }
@@ -344,21 +358,41 @@ document.addEventListener('DOMContentLoaded', () => {
     appPrincipal.style.display = 'flex';
     document.getElementById('user-setor').textContent = setor;
 
-    // Controle de visibilidade por permissão
-    const btnAdd = document.getElementById('btn-adicionar');
-    const navConfig = document.getElementById('nav-config');
-    const navLogs = document.getElementById('nav-logs');
+    // Controle de visibilidade por perfil
+    const btnAdd           = document.getElementById('btn-adicionar');
+    const btnExportar      = document.getElementById('btn-exportar');
+    const btnExportarLogs  = document.getElementById('btn-exportar-logs');
+    const btnLimparLogs    = document.getElementById('btn-limpar-logs');
+    const navConfig        = document.getElementById('nav-config');
+    const navLogs          = document.getElementById('nav-logs');
     const filtroSetorGroup = document.getElementById('filtro-setor').closest('.filtro-group');
+
     if (isTI()) {
-      btnAdd.style.display = '';
-      navConfig.style.display = '';
-      navLogs.style.display = '';
+      // ADMIN: acesso total
+      btnAdd.style.display          = '';
+      btnExportar.style.display     = '';
+      navConfig.style.display       = '';
+      navLogs.style.display         = '';
+      if (btnExportarLogs) btnExportarLogs.style.display = '';
+      if (btnLimparLogs)   btnLimparLogs.style.display   = '';
+      if (filtroSetorGroup) filtroSetorGroup.style.display = '';
+    } else if (isDiretor()) {
+      // DIRETOR: vê tudo, exporta tombamentos/logs, filtra por setor, mas não configura/adiciona/limpa
+      btnAdd.style.display          = 'none';
+      btnExportar.style.display     = '';
+      navConfig.style.display       = 'none';
+      navLogs.style.display         = '';
+      if (btnExportarLogs) btnExportarLogs.style.display = '';
+      if (btnLimparLogs)   btnLimparLogs.style.display   = 'none';
       if (filtroSetorGroup) filtroSetorGroup.style.display = '';
     } else {
-      btnAdd.style.display = 'none';
-      navConfig.style.display = 'none';
-      navLogs.style.display = 'none';
-      // Não-TI: esconder filtro de setor (já filtra automaticamente)
+      // SETOR: apenas próprio setor, sem adicionar/configurar/exportar
+      btnAdd.style.display          = 'none';
+      btnExportar.style.display     = 'none';
+      navConfig.style.display       = 'none';
+      navLogs.style.display         = 'none';
+      if (btnExportarLogs) btnExportarLogs.style.display = 'none';
+      if (btnLimparLogs)   btnLimparLogs.style.display   = '';
       if (filtroSetorGroup) filtroSetorGroup.style.display = 'none';
     }
 
@@ -371,41 +405,8 @@ document.addEventListener('DOMContentLoaded', () => {
     carregarDashboard();
   }
 
-  // Popular login setor — combobox com autocomplete
-  function popularLoginSetores() {
-    const users = JSON.parse(localStorage.getItem(USERS_KEY) || '{}');
-    const setores = Object.keys(users).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    const input    = document.getElementById('login-setor');
-    const dropdown = document.getElementById('login-setor-dropdown');
-    const arrow    = document.getElementById('login-setor-arrow');
-
-    function renderOpts(filtro) {
-      const f = filtro.toLowerCase();
-      const filtered = f ? setores.filter(s => s.toLowerCase().includes(f)) : setores;
-      dropdown.innerHTML = filtered.length === 0
-        ? '<div class="combobox-no-result">Nenhum setor encontrado</div>'
-        : filtered.map(s => `<div class="combobox-option">${escapeHtml(s)}</div>`).join('');
-      dropdown.querySelectorAll('.combobox-option').forEach(opt => {
-        opt.addEventListener('mousedown', e => {
-          e.preventDefault();
-          input.value = opt.textContent;
-          dropdown.classList.remove('open');
-        });
-      });
-    }
-
-    arrow.onclick = e => {
-      e.preventDefault(); e.stopPropagation();
-      dropdown.classList.contains('open')
-        ? dropdown.classList.remove('open')
-        : (renderOpts(input.value), dropdown.classList.add('open'), input.focus());
-    };
-    input.oninput  = () => { renderOpts(input.value); dropdown.classList.add('open'); };
-    input.onfocus  = () => { renderOpts(input.value); dropdown.classList.add('open'); };
-    document.addEventListener('click', e => {
-      if (!input.closest('.combobox-wrapper').contains(e.target)) dropdown.classList.remove('open');
-    }, { capture: true });
-  }
+  // popularLoginSetores — sem dropdown, mantido como no-op para compatibilidade
+  async function popularLoginSetores() { /* dropdown removido */ }
   popularLoginSetores();
 
   // Logout
@@ -895,6 +896,7 @@ document.addEventListener('DOMContentLoaded', () => {
           fecharModalOverlay();
           await refreshSetoresCache();
           renderSetores();
+          renderCredenciais();
           popularSelectsSetores();
           if (typeof popularLoginSetores === 'function') popularLoginSetores();
           showToast(`Setor "${nomeRemovido}" removido.`);
@@ -1619,6 +1621,8 @@ document.addEventListener('DOMContentLoaded', () => {
     renderMarcas();
     renderMateriais();
     renderSetores();
+    renderCredenciais();
+    renderTiUsuarios();
   }
 
   function renderMarcas() {
@@ -1831,7 +1835,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // renderSetores em modo API: busca nomes do servidor, senhas nunca trafegam
+  // renderSetores em modo API: catálogo simples — só nome + remover
   async function renderSetoresAPI() {
     const container = document.getElementById('lista-setores');
     if (!container) return;
@@ -1848,70 +1852,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     nomes.sort((a, b) => a.localeCompare(b, 'pt-BR'));
     container.innerHTML = nomes.map(setor => {
-      const isTIsetor = setor === 'TI';
+      const isTI = setor === 'TI';
       return `
-        <div class="config-setor-row ${isTIsetor ? 'setor-ti' : ''}">
+        <div class="config-setor-row ${isTI ? 'setor-ti' : ''}">
           <div class="setor-info">
             <i class="fas fa-building" style="opacity:0.5;"></i>
             <span class="setor-nome">${escapeHtml(setor)}</span>
-            ${isTIsetor ? '<span class="setor-badge-admin">ADMIN</span>' : ''}
+            ${isTI ? '<span class="setor-badge-admin">ADMIN</span>' : ''}
           </div>
           <div class="setor-actions">
-            <div class="setor-senha-group">
-              <input type="password" class="setor-senha-input" value="" placeholder="••••••••" data-setor="${escapeHtml(setor)}" readonly>
-              <button class="btn-icon setor-toggle-senha" data-setor="${escapeHtml(setor)}" title="Mostrar/ocultar senha">
-                <i class="fas fa-eye"></i>
-              </button>
-            </div>
-            <button class="btn-icon setor-editar-senha" data-setor="${escapeHtml(setor)}" title="Editar senha">
-              <i class="fas fa-pen"></i>
-            </button>
-            ${!isTIsetor ? `<button class="btn-icon setor-remover" data-setor="${escapeHtml(setor)}" title="Remover setor">
+            ${!isTI ? `<button class="btn-icon setor-remover" data-setor="${escapeHtml(setor)}" title="Remover setor">
               <i class="fas fa-trash" style="color:#ef4444;"></i>
-            </button>` : ''}
+            </button>` : '<span style="font-size:0.75rem;color:var(--cinza-400);">protegido</span>'}
           </div>
         </div>`;
     }).join('');
-
-    container.querySelectorAll('.setor-toggle-senha').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const setor = btn.dataset.setor;
-        const input = container.querySelector(`.setor-senha-input[data-setor="${setor}"]`);
-        const icon = btn.querySelector('i');
-        if (input.type === 'password') { input.type = 'text'; icon.className = 'fas fa-eye-slash'; }
-        else { input.type = 'password'; icon.className = 'fas fa-eye'; }
-      });
-    });
-
-    container.querySelectorAll('.setor-editar-senha').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const setor = btn.dataset.setor;
-        const input = container.querySelector(`.setor-senha-input[data-setor="${setor}"]`);
-        if (input.readOnly) {
-          input.readOnly = false;
-          input.type = 'text';
-          input.value = '';
-          input.placeholder = 'Nova senha...';
-          input.focus();
-          btn.innerHTML = '<i class="fas fa-check" style="color:#10b981;"></i>';
-          btn.title = 'Salvar senha';
-        } else {
-          const novaSenha = input.value.trim();
-          if (!novaSenha) { showToast('A senha não pode ficar vazia.', true); return; }
-          try {
-            await API.updateSetor(setor, novaSenha);
-            input.readOnly = true;
-            input.type = 'password';
-            input.value = '';
-            input.placeholder = '••••••••';
-            btn.innerHTML = '<i class="fas fa-pen"></i>';
-            btn.title = 'Editar senha';
-            showToast(`Senha do setor "${setor}" atualizada!`);
-            addLog('Config', `Senha do setor ${setor} alterada`, 'alerta');
-          } catch (e) { showToast(e.message || 'Erro ao salvar.', true); }
-        }
-      });
-    });
 
     container.querySelectorAll('.setor-remover').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -1922,6 +1877,430 @@ document.addEventListener('DOMContentLoaded', () => {
         modalConfirmar.className = 'btn-danger';
         modalOverlay.classList.add('show');
       });
+    });
+  }
+
+  // ── CREDENCIAIS DE ACESSO ─────────────────────────────────────────────
+  function renderCredenciais() {
+    if (window.MODO_API) { renderCredenciaisAPI(); return; }
+    // modo localStorage
+    const users = getUsers();
+    _renderCredenciaisDOM(
+      document.getElementById('lista-credenciais'),
+      Object.entries(users).map(([nome, senha]) => ({ nome, senha_plain: senha })),
+      (setor, novaSenha) => {
+        const u = getUsers(); u[setor] = novaSenha; saveUsers(u);
+      }
+    );
+  }
+
+  async function renderCredenciaisAPI() {
+    const container = document.getElementById('lista-credenciais');
+    if (!container) return;
+    container.innerHTML = '<p class="config-empty" style="color:var(--cinza-400)"><i class="fas fa-spinner fa-spin"></i> Carregando...</p>';
+    let lista;
+    try {
+      lista = await API.getCredenciais();
+    } catch (e) {
+      container.innerHTML = '<p class="config-empty">Erro ao carregar credenciais.</p>';
+      return;
+    }
+    lista.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+    _renderCredenciaisDOM(container, lista, async (setor, novaSenha, novoLogin) => {
+      if (novaSenha && novoLogin) {
+        await API.updateSetorFull(setor, novaSenha, novoLogin);
+      } else if (novaSenha) {
+        await API.updateSetor(setor, novaSenha);
+      } else if (novoLogin) {
+        await API.updateSetorLogin(setor, novoLogin);
+      }
+      // atualiza campo de senha no DOM se mudou
+      if (novaSenha) {
+        const inp = container.querySelector(`.cred-senha-input[data-setor="${setor}"]`);
+        if (inp) inp.setAttribute('data-plain', novaSenha);
+      }
+      // atualiza login no DOM se mudou
+      if (novoLogin) {
+        await popularLoginSetores();
+      }
+    });
+  }
+
+  function _renderCredenciaisDOM(container, lista, onSalvar) {
+    if (!lista || lista.length === 0) {
+      container.innerHTML = '<p class="config-empty">Nenhum setor cadastrado.</p>';
+      return;
+    }
+    const temLogin = lista.some(i => i.login !== undefined);
+    const temCargo = lista.some(i => i.cargo !== undefined);
+    // colunas: Setor | [Login] | [Cargo] | Senha | Ações
+    const totalCols = 2 + (temLogin ? 1 : 0) + (temCargo ? 1 : 0);
+    const colClass  = totalCols >= 4 ? 'cred-4col' : '';
+
+    container.innerHTML = `
+      <div class="cred-header-row ${colClass}">
+        <span class="cred-col cred-col-setor">Setor</span>
+        ${temLogin ? '<span class="cred-col cred-col-login">Login (gerente)</span>' : ''}
+        ${temCargo ? '<span class="cred-col cred-col-login">Cargo</span>' : ''}
+        <span class="cred-col cred-col-senha">Senha</span>
+        <span class="cred-col cred-col-acao">Ações</span>
+      </div>` +
+      lista.map(({ nome, login, senha_plain, cargo }) => {
+        const isTI = nome === 'TI';
+        const plain = senha_plain || '';
+        const loginVal = login || nome;
+        const cargoVal = cargo || 'setor';
+        const cargoBadgeClass = cargoVal === 'diretor' ? 'cargo-badge-diretor' : 'cargo-badge-setor';
+        const cargoLabel = cargoVal === 'diretor' ? 'Diretor' : 'Setor';
+        return `
+        <div class="cred-row ${isTI ? 'cred-row-ti' : ''} ${colClass}">
+          <div class="cred-col cred-col-setor" data-tooltip="${escapeHtml(nome)}">
+            <i class="fas fa-user-circle" style="opacity:0.45;"></i>
+            <strong>${escapeHtml(nome)}</strong>
+            ${isTI ? '<span class="setor-badge-admin">ADMIN</span>' : ''}
+          </div>
+          ${temLogin ? `
+          <div class="cred-col cred-col-login">
+            <div class="setor-senha-group">
+              <input type="text"
+                class="setor-senha-input cred-login-input"
+                value="${escapeHtml(loginVal)}"
+                data-login="${escapeHtml(loginVal)}"
+                data-setor="${escapeHtml(nome)}"
+                readonly>
+              <button class="btn-icon cred-editar-login" data-setor="${escapeHtml(nome)}" title="Editar login">
+                <i class="fas fa-pen"></i>
+              </button>
+            </div>
+          </div>` : ''}
+          ${temCargo ? `
+          <div class="cred-col cred-col-login">
+            ${isTI
+              ? '<span class="setor-badge-admin" style="font-size:0.75rem;">TI (admin)</span>'
+              : `<select class="cred-cargo-select" data-setor="${escapeHtml(nome)}" title="Alterar cargo">
+                  <option value="setor"  ${cargoVal === 'setor'   ? 'selected' : ''}>Setor</option>
+                  <option value="diretor"${cargoVal === 'diretor' ? 'selected' : ''}>Diretor</option>
+                </select>`
+            }
+          </div>` : ''}
+          <div class="cred-col cred-col-senha">
+            <div class="setor-senha-group">
+              <input type="password"
+                class="setor-senha-input cred-senha-input"
+                value="${escapeHtml(plain)}"
+                data-plain="${escapeHtml(plain)}"
+                data-setor="${escapeHtml(nome)}"
+                readonly>
+              <button class="btn-icon cred-toggle-senha" data-setor="${escapeHtml(nome)}" title="Mostrar/ocultar senha">
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+          </div>
+          <div class="cred-col cred-col-acao">
+            <button class="btn-icon cred-editar-senha" data-setor="${escapeHtml(nome)}" title="Editar senha">
+              <i class="fas fa-pen"></i>
+            </button>
+          </div>
+        </div>`;
+      }).join('');
+
+    // toggle visível
+    container.querySelectorAll('.cred-toggle-senha').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const inp = container.querySelector(`.cred-senha-input[data-setor="${btn.dataset.setor}"]`);
+        const ico = btn.querySelector('i');
+        if (inp.type === 'password') {
+          inp.value = inp.getAttribute('data-plain');
+          inp.type = 'text';
+          ico.className = 'fas fa-eye-slash';
+        } else {
+          inp.type = 'password';
+          inp.value = inp.getAttribute('data-plain');
+          ico.className = 'fas fa-eye';
+        }
+      });
+    });
+
+    // editar senha
+    container.querySelectorAll('.cred-editar-senha').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const setor = btn.dataset.setor;
+        const inp = container.querySelector(`.cred-senha-input[data-setor="${setor}"]`);
+        if (inp.readOnly) {
+          // entrar em modo edição
+          inp.readOnly = false;
+          inp.type = 'text';
+          inp.value = inp.getAttribute('data-plain');
+          inp.focus(); inp.select();
+          btn.innerHTML = '<i class="fas fa-check" style="color:#10b981;"></i>';
+          btn.title = 'Salvar';
+        } else {
+          // salvar
+          const nova = inp.value.trim();
+          if (!nova) { showToast('A senha não pode ser vazia.', true); return; }
+          try {
+            await onSalvar(setor, nova, null);
+            inp.setAttribute('data-plain', nova);
+            inp.readOnly = true;
+            inp.type = 'password';
+            inp.value = nova;
+            btn.innerHTML = '<i class="fas fa-pen"></i>';
+            btn.title = 'Editar senha';
+            // reseta toggle
+            const tog = container.querySelector(`.cred-toggle-senha[data-setor="${setor}"] i`);
+            if (tog) tog.className = 'fas fa-eye';
+            showToast(`Senha de "${setor}" atualizada!`);
+            addLog('Config', `Senha do setor ${setor} alterada`, 'alerta');
+          } catch (e) { showToast(e.message || 'Erro ao salvar.', true); }
+        }
+      });
+    });
+
+    // editar login (nome do gerente)
+    container.querySelectorAll('.cred-editar-login').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const setor = btn.dataset.setor;
+        const inp = container.querySelector(`.cred-login-input[data-setor="${setor}"]`);
+        if (inp.readOnly) {
+          inp.readOnly = false;
+          inp.focus(); inp.select();
+          btn.innerHTML = '<i class="fas fa-check" style="color:#10b981;"></i>';
+          btn.title = 'Salvar login';
+        } else {
+          const novoLogin = inp.value.trim();
+          if (!novoLogin) { showToast('O login não pode ser vazio.', true); return; }
+          try {
+            await onSalvar(setor, null, novoLogin);
+            inp.setAttribute('data-login', novoLogin);
+            inp.readOnly = true;
+            btn.innerHTML = '<i class="fas fa-pen"></i>';
+            btn.title = 'Editar login';
+            showToast(`Login de "${setor}" atualizado para "${novoLogin}"!`);
+            addLog('Config', `Login do setor ${setor} alterado para ${novoLogin}`, 'alerta');
+          } catch (e) {
+            inp.value = inp.getAttribute('data-login');
+            inp.readOnly = true;
+            btn.innerHTML = '<i class="fas fa-pen"></i>';
+            showToast(e.message || 'Erro ao salvar login.', true);
+          }
+        }
+      });
+    });
+
+    // alterar cargo (select imediato)
+    container.querySelectorAll('.cred-cargo-select').forEach(sel => {
+      sel.addEventListener('change', async () => {
+        const setor    = sel.dataset.setor;
+        const novoCargo = sel.value;
+        try {
+          await API.updateSetorCargo(setor, novoCargo);
+          const label = novoCargo === 'diretor' ? 'Diretor' : 'Setor';
+          showToast(`Cargo de "${setor}" alterado para ${label}!`);
+          addLog('Config', `Cargo do setor ${setor} alterado para ${novoCargo}`, 'alerta');
+        } catch (e) {
+          showToast(e.message || 'Erro ao alterar cargo.', true);
+          // reverte visual
+          sel.value = sel.value === 'diretor' ? 'setor' : 'diretor';
+        }
+      });
+    });
+
+    // ajustar tooltip: pull-left quando perto da borda direita
+    container.querySelectorAll('.cred-col-setor[data-tooltip]').forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        const rect = el.getBoundingClientRect();
+        const tooltipEstimatedWidth = 260;
+        el.classList.toggle('tooltip-pull-left', rect.left + tooltipEstimatedWidth > window.innerWidth - 20);
+      });
+    });
+  }
+  function renderTiUsuarios() {
+    if (!window.MODO_API) return; // só em modo API
+    renderTiUsuariosAPI();
+  }
+
+  async function renderTiUsuariosAPI() {
+    const container = document.getElementById('lista-ti-usuarios');
+    if (!container) return;
+    container.innerHTML = '<p class="config-empty" style="color:var(--cinza-400)"><i class="fas fa-spinner fa-spin"></i> Carregando...</p>';
+    let lista;
+    try {
+      lista = await API.getTiUsuarios();
+    } catch (e) {
+      container.innerHTML = '<p class="config-empty">Erro ao carregar usuários TI.</p>';
+      return;
+    }
+
+    if (!lista || lista.length === 0) {
+      container.innerHTML = '<p class="config-empty">Nenhum usuário TI cadastrado.</p>';
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="cred-header-row cred-4col">
+        <span class="cred-col cred-col-setor">#</span>
+        <span class="cred-col cred-col-login">Login</span>
+        <span class="cred-col cred-col-senha">Senha</span>
+        <span class="cred-col cred-col-acao">Ações</span>
+      </div>` +
+      lista.map(({ id, login, senha_plain }) => {
+        const plain = senha_plain || '';
+        return `
+        <div class="cred-row cred-4col" data-ti-id="${id}">
+          <div class="cred-col cred-col-setor">
+            <i class="fas fa-shield-halved" style="color:var(--azul-500);opacity:0.8;"></i>
+            <span class="cred-ti-badge">TI</span>
+          </div>
+          <div class="cred-col cred-col-login">
+            <div class="setor-senha-group">
+              <input type="text"
+                class="setor-senha-input cred-login-input"
+                value="${escapeHtml(login)}"
+                data-login="${escapeHtml(login)}"
+                data-ti-id="${id}"
+                readonly>
+              <button class="btn-icon cred-ti-editar-login" data-ti-id="${id}" title="Editar login">
+                <i class="fas fa-pen"></i>
+              </button>
+            </div>
+          </div>
+          <div class="cred-col cred-col-senha">
+            <div class="setor-senha-group">
+              <input type="password"
+                class="setor-senha-input cred-senha-input"
+                value="${escapeHtml(plain)}"
+                data-plain="${escapeHtml(plain)}"
+                data-ti-id="${id}"
+                readonly>
+              <button class="btn-icon cred-ti-toggle-senha" data-ti-id="${id}" title="Mostrar/ocultar senha">
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+          </div>
+          <div class="cred-col cred-col-acao">
+            <button class="btn-icon cred-ti-editar-senha" data-ti-id="${id}" title="Editar senha">
+              <i class="fas fa-pen"></i>
+            </button>
+            <button class="btn-icon btn-icon-danger cred-ti-remover" data-ti-id="${id}" title="Remover usuário">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>`;
+      }).join('');
+
+    // toggle senha
+    container.querySelectorAll('.cred-ti-toggle-senha').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const inp = container.querySelector(`.cred-senha-input[data-ti-id="${btn.dataset.tiId}"]`);
+        const ico = btn.querySelector('i');
+        if (inp.type === 'password') {
+          inp.value = inp.getAttribute('data-plain');
+          inp.type = 'text';
+          ico.className = 'fas fa-eye-slash';
+        } else {
+          inp.type = 'password';
+          inp.value = inp.getAttribute('data-plain');
+          ico.className = 'fas fa-eye';
+        }
+      });
+    });
+
+    // editar login
+    container.querySelectorAll('.cred-ti-editar-login').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.tiId;
+        const inp = container.querySelector(`.cred-login-input[data-ti-id="${id}"]`);
+        if (inp.readOnly) {
+          inp.readOnly = false; inp.focus(); inp.select();
+          btn.innerHTML = '<i class="fas fa-check" style="color:#10b981;"></i>';
+          btn.title = 'Salvar';
+        } else {
+          const novoLogin = inp.value.trim();
+          if (!novoLogin) { showToast('O login não pode ser vazio.', true); return; }
+          try {
+            await API.updateTiUsuario(id, novoLogin, null);
+            inp.setAttribute('data-login', novoLogin);
+            inp.readOnly = true;
+            btn.innerHTML = '<i class="fas fa-pen"></i>';
+            btn.title = 'Editar login';
+            showToast(`Login atualizado para "${novoLogin}"!`);
+            addLog('Config', `Login TI alterado para ${novoLogin}`, 'alerta');
+            await popularLoginSetores();
+          } catch (e) {
+            inp.value = inp.getAttribute('data-login');
+            inp.readOnly = true;
+            btn.innerHTML = '<i class="fas fa-pen"></i>';
+            showToast(e.message || 'Erro ao salvar login.', true);
+          }
+        }
+      });
+    });
+
+    // editar senha
+    container.querySelectorAll('.cred-ti-editar-senha').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.tiId;
+        const inp = container.querySelector(`.cred-senha-input[data-ti-id="${id}"]`);
+        if (inp.readOnly) {
+          inp.readOnly = false; inp.type = 'text';
+          inp.value = inp.getAttribute('data-plain');
+          inp.focus(); inp.select();
+          btn.innerHTML = '<i class="fas fa-check" style="color:#10b981;"></i>';
+          btn.title = 'Salvar';
+        } else {
+          const nova = inp.value.trim();
+          if (!nova) { showToast('A senha não pode ser vazia.', true); return; }
+          try {
+            await API.updateTiUsuario(id, null, nova);
+            inp.setAttribute('data-plain', nova);
+            inp.readOnly = true; inp.type = 'password'; inp.value = nova;
+            btn.innerHTML = '<i class="fas fa-pen"></i>';
+            btn.title = 'Editar senha';
+            const tog = container.querySelector(`.cred-ti-toggle-senha[data-ti-id="${id}"] i`);
+            if (tog) tog.className = 'fas fa-eye';
+            showToast('Senha atualizada!');
+            addLog('Config', `Senha de usuário TI alterada`, 'alerta');
+          } catch (e) { showToast(e.message || 'Erro ao salvar.', true); }
+        }
+      });
+    });
+
+    // remover usuário
+    container.querySelectorAll('.cred-ti-remover').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.tiId;
+        const row = container.querySelector(`.cred-row[data-ti-id="${id}"]`);
+        const loginVal = row ? row.querySelector('.cred-login-input').getAttribute('data-login') : `#${id}`;
+        if (!confirm(`Remover usuário TI "${loginVal}"? Esta ação não pode ser desfeita.`)) return;
+        try {
+          await API.deleteTiUsuario(id);
+          renderTiUsuariosAPI();
+          await popularLoginSetores();
+          showToast(`Usuário "${loginVal}" removido.`);
+          addLog('Config', `Usuário TI "${loginVal}" removido`, 'alerta');
+        } catch (e) { showToast(e.message || 'Erro ao remover.', true); }
+      });
+    });
+  }
+
+  // Adicionar usuário TI
+  const btnAddTiUsuario = document.getElementById('btn-add-ti-usuario');
+  if (btnAddTiUsuario) {
+    btnAddTiUsuario.addEventListener('click', async () => {
+      const inpLogin = document.getElementById('input-ti-login');
+      const inpSenha = document.getElementById('input-ti-senha');
+      const login  = inpLogin.value.trim();
+      const senha  = inpSenha.value.trim();
+      if (!login) { showToast('Digite o login do usuário.', true); return; }
+      if (!senha) { showToast('Digite a senha.', true); return; }
+      try {
+        await API.addTiUsuario(login, senha);
+        inpLogin.value = ''; inpSenha.value = '';
+        renderTiUsuariosAPI();
+        await popularLoginSetores();
+        showToast(`Usuário TI "${login}" adicionado!`);
+        addLog('Config', `Novo usuário TI "${login}" criado`, 'sucesso');
+      } catch (e) { showToast(e.message || 'Erro ao adicionar.', true); }
     });
   }
 
@@ -1940,6 +2319,7 @@ document.addEventListener('DOMContentLoaded', () => {
         inputSenha.value = '';
         await refreshSetoresCache();
         renderSetores();
+        renderCredenciais();
         popularSelectsSetores();
         if (typeof popularLoginSetores === 'function') popularLoginSetores();
         showToast(`Setor "${nome}" adicionado!`);
@@ -2371,6 +2751,31 @@ document.addEventListener('DOMContentLoaded', () => {
     filtroNivel.addEventListener('change', renderLogs);
     filtroSetor.addEventListener('change', renderLogs);
     renderLogs();
+  }
+
+  // Exportar logs (CSV)
+  const btnExportarLogs = document.getElementById('btn-exportar-logs');
+  if (btnExportarLogs) {
+    btnExportarLogs.addEventListener('click', () => {
+      const logs = getLogs();
+      if (!logs || logs.length === 0) { showToast('Nenhum log para exportar.', true); return; }
+      const header = ['Data/Hora', 'Setor', 'Ação', 'Detalhes', 'Nível'];
+      const rows = logs.map(l => [
+        l.data || '',
+        l.setor || '',
+        (l.acao || '').replace(/"/g, '""'),
+        (l.detalhes || '').replace(/"/g, '""'),
+        l.nivel || ''
+      ].map(v => `"${v}"`).join(';'));
+      const csv = '\uFEFF' + [header.join(';'), ...rows].join('\r\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = `logs_tombamento_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
   }
 
   // Limpar logs

@@ -35,10 +35,22 @@
     async logout()           { return post('/api/logout'); },
 
     // ── Setores ──────────────────────────────────────────────────────────
-    async getSetores()              { return get('/api/setores'); },
-    async addSetor(nome, senha)     { return post('/api/setores', { nome, senha }); },
-    async updateSetor(nome, senha)  { return put(`/api/setores/${encodeURIComponent(nome)}`, { senha }); },
-    async deleteSetor(nome)         { return del(`/api/setores/${encodeURIComponent(nome)}`); },
+    async getSetores()                      { return get('/api/setores'); },
+    async getLogins()                       { return get('/api/setores/logins'); },
+    async getAllLogins()                     { return get('/api/logins'); },
+    async getCredenciais()                  { return get('/api/setores/credenciais'); },
+    async addSetor(nome, senha)             { return post('/api/setores', { nome, senha }); },
+    async updateSetor(nome, senha)          { return put(`/api/setores/${encodeURIComponent(nome)}`, { senha }); },
+    async updateSetorLogin(nome, login)     { return put(`/api/setores/${encodeURIComponent(nome)}`, { login }); },
+    async updateSetorFull(nome, senha, login) { return put(`/api/setores/${encodeURIComponent(nome)}`, { senha, login }); },
+    async updateSetorCargo(nome, cargo)     { return put(`/api/setores/${encodeURIComponent(nome)}`, { cargo }); },
+    async deleteSetor(nome)                 { return del(`/api/setores/${encodeURIComponent(nome)}`); },
+
+    // ── Usuários TI ──────────────────────────────────────────────────────
+    async getTiUsuarios()                   { return get('/api/ti/usuarios'); },
+    async addTiUsuario(login, senha)        { return post('/api/ti/usuarios', { login, senha }); },
+    async updateTiUsuario(id, login, senha) { return put(`/api/ti/usuarios/${id}`, { login, senha }); },
+    async deleteTiUsuario(id)               { return del(`/api/ti/usuarios/${id}`); },
 
     // ── Tombamentos ──────────────────────────────────────────────────────
     async getTombamentos()    { return get('/api/tombamentos'); },
