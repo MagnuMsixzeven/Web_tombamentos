@@ -336,21 +336,23 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // modo localStorage
+    // modo localStorage (GitHub Pages / demo)
     const users = JSON.parse(localStorage.getItem(USERS_KEY));
-    if (!setor || !users[setor]) {
-      loginError.textContent = 'Selecione um setor válido.';
+    // busca case-insensitive
+    const setorKey = Object.keys(users).find(k => k.toLowerCase() === setor.toLowerCase());
+    if (!setor || !setorKey) {
+      loginError.textContent = 'Setor ou login não encontrado.';
       return;
     }
-    if (senha !== users[setor]) {
+    if (senha !== users[setorKey]) {
       loginError.textContent = 'Senha incorreta.';
-      addLog('Login falhou', `Tentativa de login no setor ${setor} — senha incorreta`, 'erro');
+      addLog('Login falhou', `Tentativa de login no setor ${setorKey} — senha incorreta`, 'erro');
       return;
     }
     loginError.textContent = '';
-    setSession(setor);
-    addLog('Login', `Setor ${setor} entrou no sistema`, 'info');
-    mostrarApp(setor);
+    setSession(setorKey, setorKey === 'TI' ? 'ti' : 'setor');
+    addLog('Login', `Setor ${setorKey} entrou no sistema`, 'info');
+    mostrarApp(setorKey);
   });
 
   function mostrarApp(setor) {
