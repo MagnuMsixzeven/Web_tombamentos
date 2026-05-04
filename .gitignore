@@ -5,3 +5,6 @@ tombamento.db-shm
 tombamento.db-wal
 *.xlsx
 *.xls
+check_db.py
+__pycache__/
+.venv/
